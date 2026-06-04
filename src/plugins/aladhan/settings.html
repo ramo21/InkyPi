@@ -1,0 +1,403 @@
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+<div class="form-group">
+    <label for="locationName">Location name / title</label>
+    <input type="text" id="locationName" name="locationName" placeholder="Chicago, IL">
+</div>
+
+<div class="form-group">
+    <label for="customTitle">Custom title</label>
+    <input type="text" id="customTitle" name="customTitle" placeholder="Prayer Times">
+</div>
+
+<div class="form-group">
+    <label>Location</label>
+    <div class="form-row">
+        <input type="number" step="any" id="latitude" name="latitude" placeholder="Latitude" min="-90" max="90" required>
+        <input type="number" step="any" id="longitude" name="longitude" placeholder="Longitude" min="-180" max="180" required>
+    </div>
+    <div class="form-row" style="margin-top: 8px; gap: 8px; align-items: center;">
+        <button type="button" id="openAladhanMap" class="action-button compact">Select on map</button>
+        <button type="button" id="useBrowserLocation" class="action-button compact">Use browser location</button>
+    </div>
+    <small>Pick your location on the map, use browser location, or manually enter decimal coordinates. When opened, the map starts at the timezone location if the timezone is recognized; manual entry still works offline.</small>
+</div>
+
+<div class="form-group">
+    <label for="timezonestring">Timezone</label>
+    <input type="text" id="timezonestring" name="timezonestring" placeholder="America/Chicago">
+    <small>Leave blank to use the InkyPi device timezone. Use an IANA timezone such as America/Chicago.</small>
+</div>
+
+<div class="form-group">
+    <label for="dailyRefreshTime">Daily refresh time</label>
+    <input type="time" id="dailyRefreshTime" name="dailyRefreshTime" value="00:05" step="60" required>
+    <small>Default: 12:05 AM. Use this same time when adding the plugin to an InkyPi playlist with Refresh set to Daily at this time. This field is saved with the plugin settings as your preferred daily schedule.</small>
+</div>
+
+<div class="form-group">
+    <label for="displayMode">Display mode</label>
+    <select id="displayMode" name="displayMode">
+        <option value="today">Today: prayer times</option>
+        <option value="calendar">Prayer + Hijri calendar</option>
+        <option value="ramadan">Ramadan calendar</option>
+    </select>
+</div>
+
+<div class="form-group">
+    <label for="method">Calculation method</label>
+    <select id="method" name="method">
+        {% for method in methods %}
+        <option value="{{ method.id }}">{{ method.name }}</option>
+        {% endfor %}
+    </select>
+</div>
+
+<div class="form-group">
+    <label for="school">Asr juristic school</label>
+    <select id="school" name="school">
+        <option value="0">Shafi / Maliki / Hanbali</option>
+        <option value="1">Hanafi</option>
+    </select>
+</div>
+
+<div class="form-group">
+    <label for="latitudeAdjustmentMethod">High-latitude adjustment</label>
+    <select id="latitudeAdjustmentMethod" name="latitudeAdjustmentMethod">
+        <option value="1">Middle of the night</option>
+        <option value="2">One seventh</option>
+        <option value="3">Angle based</option>
+    </select>
+</div>
+
+<div class="form-group">
+    <label for="midnightMode">Midnight mode</label>
+    <select id="midnightMode" name="midnightMode">
+        <option value="0">Standard</option>
+        <option value="1">Jafari</option>
+    </select>
+</div>
+
+<div class="form-group">
+    <label for="shafaq">Shafaq</label>
+    <select id="shafaq" name="shafaq">
+        <option value="general">General</option>
+        <option value="ahmer">Ahmer</option>
+        <option value="abyad">Abyad</option>
+    </select>
+</div>
+
+<div class="form-group">
+    <label for="adjustment">Hijri date adjustment</label>
+    <input type="number" id="adjustment" name="adjustment" value="0" min="-3" max="3">
+</div>
+
+<div class="form-group">
+    <label for="methodSettings">Custom method settings</label>
+    <input type="text" id="methodSettings" name="methodSettings" placeholder="18.5,null,17.5">
+    <small>Only used when Calculation method is “Custom angles”. Format: FajrAngle,MaghribAngleOrMinutes,IshaAngleOrMinutes.</small>
+</div>
+
+<div class="form-group">
+    <label for="tune">Fine tune times</label>
+    <input type="text" id="tune" name="tune" placeholder="0,0,0,0,0,0,0,0,0">
+    <small>Minutes in this order: Imsak,Fajr,Sunrise,Dhuhr,Asr,Maghrib,Sunset,Isha,Midnight.</small>
+</div>
+
+<div class="form-group">
+    <label for="timeFormat">Time format</label>
+    <select id="timeFormat" name="timeFormat">
+        <option value="12h">12 hour</option>
+        <option value="24h">24 hour</option>
+    </select>
+</div>
+
+<div class="form-group">
+    <label for="calendarDays">Calendar rows to show</label>
+    <select id="calendarDays" name="calendarDays">
+        <option value="5">5</option>
+        <option value="7">7</option>
+        <option value="10">10</option>
+        <option value="14">14</option>
+        <option value="30">30</option>
+    </select>
+</div>
+
+<div class="form-group">
+    <label for="ramadanYearMode">Ramadan year</label>
+    <select id="ramadanYearMode" name="ramadanYearMode">
+        <option value="upcoming">Upcoming Ramadan</option>
+        <option value="current">Current Hijri year</option>
+        <option value="custom">Custom Hijri year</option>
+    </select>
+</div>
+
+<div class="form-group">
+    <label for="ramadanHijriYear">Custom Ramadan Hijri year</label>
+    <input type="number" id="ramadanHijriYear" name="ramadanHijriYear" placeholder="1447">
+</div>
+
+<div class="form-group">
+    <label>Show / hide</label>
+    <div class="checkbox-grid">
+        <label><input type="checkbox" id="displayRefreshTime" name="displayRefreshTime" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Refresh time</label>
+        <label><input type="checkbox" id="showHijri" name="showHijri" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Hijri date</label>
+        <label><input type="checkbox" id="showGregorian" name="showGregorian" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Gregorian date</label>
+        <label><input type="checkbox" id="showNextPrayer" name="showNextPrayer" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Next prayer card</label>
+        <label><input type="checkbox" id="showImsak" name="showImsak" value="false" onclick="this.value=this.checked ? 'true' : 'false';"> Imsak</label>
+        <label><input type="checkbox" id="showSunrise" name="showSunrise" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Sunrise</label>
+        <label><input type="checkbox" id="showSunset" name="showSunset" value="false" onclick="this.value=this.checked ? 'true' : 'false';"> Sunset</label>
+        <label><input type="checkbox" id="showMidnight" name="showMidnight" value="false" onclick="this.value=this.checked ? 'true' : 'false';"> Midnight</label>
+    </div>
+</div>
+
+<!-- Map selector modal. Uses InkyPi's modal helpers when available and falls back to inline display. -->
+<div id="aladhanMapModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="close-button" id="closeAladhanMapX">×</span>
+        <h2 id="aladhanMapTitle">Select Location</h2>
+        <div class="separator"></div>
+        <div id="aladhanMapStatus" style="font-size: 0.9rem; margin-bottom: 8px;"></div>
+        <div id="aladhanMap" style="width: 100%; height: 320px; margin: 10px 0;"></div>
+        <div class="form-row" style="gap: 8px; align-items: center;">
+            <button type="button" id="saveAladhanMap" class="action-button">Save location</button>
+            <button type="button" id="cancelAladhanMap" class="action-button compact">Cancel</button>
+        </div>
+        <small>Click the map or drag the marker. Latitude and longitude are saved back into the fields above.</small>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const defaults = {
+        locationName: '',
+        customTitle: 'Prayer Times',
+        latitude: '',
+        longitude: '',
+        timezonestring: '',
+        dailyRefreshTime: '00:05',
+        displayMode: 'today',
+        method: '3',
+        school: '0',
+        latitudeAdjustmentMethod: '3',
+        midnightMode: '0',
+        shafaq: 'general',
+        adjustment: '0',
+        methodSettings: '',
+        tune: '',
+        timeFormat: '12h',
+        calendarDays: '7',
+        ramadanYearMode: 'upcoming',
+        ramadanHijriYear: '',
+        displayRefreshTime: 'true',
+        showHijri: 'true',
+        showGregorian: 'true',
+        showNextPrayer: 'true',
+        showImsak: 'false',
+        showSunrise: 'true',
+        showSunset: 'false',
+        showMidnight: 'false'
+    };
+
+    const values = (typeof loadPluginSettings !== 'undefined' && loadPluginSettings) ? {...defaults, ...pluginSettings} : defaults;
+
+    Object.entries(values).forEach(([key, value]) => {
+        const el = document.getElementById(key);
+        if (!el) return;
+        if (el.type === 'checkbox') {
+            const checked = value === true || value === 'true';
+            el.checked = checked;
+            el.value = checked ? 'true' : 'false';
+        } else {
+            el.value = value || '';
+        }
+    });
+
+    const OSM_TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+    const MAKKAH = {lat: 21.4225, lng: 39.8262};
+    // Representative map centers for IANA timezones. Generated from the public-domain tzdata zone1970.tab file.
+    const TIMEZONE_CENTERS = {"Europe/Andorra":[42.5,1.516667],"Asia/Dubai":[25.3,55.3],"Asia/Kabul":[34.516667,69.2],"Europe/Tirane":[41.333333,19.833333],"Asia/Yerevan":[40.183333,44.5],"Antarctica/Casey":[-66.283333,110.516667],"Antarctica/Davis":[-68.583333,77.966667],"Antarctica/Mawson":[-67.6,62.883333],"Antarctica/Palmer":[-64.8,-64.1],"Antarctica/Rothera":[-67.566667,-68.133333],"Antarctica/Troll":[-72.011389,2.535],"Antarctica/Vostok":[-78.4,106.9],"America/Argentina/Buenos_Aires":[-34.6,-58.45],"America/Argentina/Cordoba":[-31.4,-64.183333],"America/Argentina/Salta":[-24.783333,-65.416667],"America/Argentina/Jujuy":[-24.183333,-65.3],"America/Argentina/Tucuman":[-26.816667,-65.216667],"America/Argentina/Catamarca":[-28.466667,-65.783333],"America/Argentina/La_Rioja":[-29.433333,-66.85],"America/Argentina/San_Juan":[-31.533333,-68.516667],"America/Argentina/Mendoza":[-32.883333,-68.816667],"America/Argentina/San_Luis":[-33.316667,-66.35],"America/Argentina/Rio_Gallegos":[-51.633333,-69.216667],"America/Argentina/Ushuaia":[-54.8,-68.3],"Pacific/Pago_Pago":[-14.266667,-170.7],"Europe/Vienna":[48.216667,16.333333],"Australia/Lord_Howe":[-31.55,159.083333],"Antarctica/Macquarie":[-54.5,158.95],"Australia/Hobart":[-42.883333,147.316667],"Australia/Melbourne":[-37.816667,144.966667],"Australia/Sydney":[-33.866667,151.216667],"Australia/Broken_Hill":[-31.95,141.45],"Australia/Brisbane":[-27.466667,153.033333],"Australia/Lindeman":[-20.266667,149.0],"Australia/Adelaide":[-34.916667,138.583333],"Australia/Darwin":[-12.466667,130.833333],"Australia/Perth":[-31.95,115.85],"Australia/Eucla":[-31.716667,128.866667],"Asia/Baku":[40.383333,49.85],"America/Barbados":[13.1,-59.616667],"Asia/Dhaka":[23.716667,90.416667],"Europe/Brussels":[50.833333,4.333333],"Europe/Sofia":[42.683333,23.316667],"Atlantic/Bermuda":[32.283333,-64.766667],"America/La_Paz":[-16.5,-68.15],"America/Noronha":[-3.85,-32.416667],"America/Belem":[-1.45,-48.483333],"America/Fortaleza":[-3.716667,-38.5],"America/Recife":[-8.05,-34.9],"America/Araguaina":[-7.2,-48.2],"America/Maceio":[-9.666667,-35.716667],"America/Bahia":[-12.983333,-38.516667],"America/Sao_Paulo":[-23.533333,-46.616667],"America/Campo_Grande":[-20.45,-54.616667],"America/Cuiaba":[-15.583333,-56.083333],"America/Santarem":[-2.433333,-54.866667],"America/Porto_Velho":[-8.766667,-63.9],"America/Boa_Vista":[2.816667,-60.666667],"America/Manaus":[-3.133333,-60.016667],"America/Eirunepe":[-6.666667,-69.866667],"America/Rio_Branco":[-9.966667,-67.8],"Asia/Thimphu":[27.466667,89.65],"Europe/Minsk":[53.9,27.566667],"America/Belize":[17.5,-88.2],"America/St_Johns":[47.566667,-52.716667],"America/Halifax":[44.65,-63.6],"America/Glace_Bay":[46.2,-59.95],"America/Moncton":[46.1,-64.783333],"America/Goose_Bay":[53.333333,-60.416667],"America/Toronto":[43.65,-79.383333],"America/Iqaluit":[63.733333,-68.466667],"America/Winnipeg":[49.883333,-97.15],"America/Resolute":[74.695556,-94.829167],"America/Rankin_Inlet":[62.816667,-92.083056],"America/Regina":[50.4,-104.65],"America/Swift_Current":[50.283333,-107.833333],"America/Edmonton":[53.55,-113.466667],"America/Cambridge_Bay":[69.113889,-105.052778],"America/Inuvik":[68.349722,-133.716667],"America/Dawson_Creek":[55.766667,-120.233333],"America/Fort_Nelson":[58.8,-122.7],"America/Whitehorse":[60.716667,-135.05],"America/Dawson":[64.066667,-139.416667],"America/Vancouver":[49.266667,-123.116667],"Europe/Zurich":[47.383333,8.533333],"Africa/Abidjan":[5.316667,-4.033333],"Pacific/Rarotonga":[-21.233333,-159.766667],"America/Santiago":[-33.45,-70.666667],"America/Coyhaique":[-45.566667,-72.066667],"America/Punta_Arenas":[-53.15,-70.916667],"Pacific/Easter":[-27.15,-109.433333],"Asia/Shanghai":[31.233333,121.466667],"Asia/Urumqi":[43.8,87.583333],"America/Bogota":[4.6,-74.083333],"America/Costa_Rica":[9.933333,-84.083333],"America/Havana":[23.133333,-82.366667],"Atlantic/Cape_Verde":[14.916667,-23.516667],"Asia/Nicosia":[35.166667,33.366667],"Asia/Famagusta":[35.116667,33.95],"Europe/Prague":[50.083333,14.433333],"Europe/Berlin":[52.5,13.366667],"America/Santo_Domingo":[18.466667,-69.9],"Africa/Algiers":[36.783333,3.05],"America/Guayaquil":[-2.166667,-79.833333],"Pacific/Galapagos":[-0.9,-89.6],"Europe/Tallinn":[59.416667,24.75],"Africa/Cairo":[30.05,31.25],"Africa/El_Aaiun":[27.15,-13.2],"Europe/Madrid":[40.4,-3.683333],"Africa/Ceuta":[35.883333,-5.316667],"Atlantic/Canary":[28.1,-15.4],"Europe/Helsinki":[60.166667,24.966667],"Pacific/Fiji":[-18.133333,178.416667],"Atlantic/Stanley":[-51.7,-57.85],"Pacific/Kosrae":[5.316667,162.983333],"Atlantic/Faroe":[62.016667,-6.766667],"Europe/Paris":[48.866667,2.333333],"Europe/London":[51.508333,-0.125278],"Asia/Tbilisi":[41.716667,44.816667],"America/Cayenne":[4.933333,-52.333333],"Europe/Gibraltar":[36.133333,-5.35],"America/Nuuk":[64.183333,-51.733333],"America/Danmarkshavn":[76.766667,-18.666667],"America/Scoresbysund":[70.483333,-21.966667],"America/Thule":[76.566667,-68.783333],"Europe/Athens":[37.966667,23.716667],"Atlantic/South_Georgia":[-54.266667,-36.533333],"America/Guatemala":[14.633333,-90.516667],"Pacific/Guam":[13.466667,144.75],"Africa/Bissau":[11.85,-15.583333],"America/Guyana":[6.8,-58.166667],"Asia/Hong_Kong":[22.283333,114.15],"America/Tegucigalpa":[14.1,-87.216667],"America/Port-au-Prince":[18.533333,-72.333333],"Europe/Budapest":[47.5,19.083333],"Asia/Jakarta":[-6.166667,106.8],"Asia/Pontianak":[-0.033333,109.333333],"Asia/Makassar":[-5.116667,119.4],"Asia/Jayapura":[-2.533333,140.7],"Europe/Dublin":[53.333333,-6.25],"Asia/Jerusalem":[31.780556,35.223889],"Asia/Kolkata":[22.533333,88.366667],"Indian/Chagos":[-7.333333,72.416667],"Asia/Baghdad":[33.35,44.416667],"Asia/Tehran":[35.666667,51.433333],"Europe/Rome":[41.9,12.483333],"America/Jamaica":[17.968056,-76.793333],"Asia/Amman":[31.95,35.933333],"Asia/Tokyo":[35.654444,139.744722],"Africa/Nairobi":[-1.283333,36.816667],"Asia/Bishkek":[42.9,74.6],"Pacific/Tarawa":[1.416667,173.0],"Pacific/Kanton":[-2.783333,-171.716667],"Pacific/Kiritimati":[1.866667,-157.333333],"Asia/Pyongyang":[39.016667,125.75],"Asia/Seoul":[37.55,126.966667],"Asia/Almaty":[43.25,76.95],"Asia/Qyzylorda":[44.8,65.466667],"Asia/Qostanay":[53.2,63.616667],"Asia/Aqtobe":[50.283333,57.166667],"Asia/Aqtau":[44.516667,50.266667],"Asia/Atyrau":[47.116667,51.933333],"Asia/Oral":[51.216667,51.35],"Asia/Beirut":[33.883333,35.5],"Asia/Colombo":[6.933333,79.85],"Africa/Monrovia":[6.3,-10.783333],"Europe/Vilnius":[54.683333,25.316667],"Europe/Riga":[56.95,24.1],"Africa/Tripoli":[32.9,13.183333],"Africa/Casablanca":[33.65,-7.583333],"Europe/Chisinau":[47.0,28.833333],"Pacific/Kwajalein":[9.083333,167.333333],"Asia/Yangon":[16.783333,96.166667],"Asia/Ulaanbaatar":[47.916667,106.883333],"Asia/Hovd":[48.016667,91.65],"Asia/Macau":[22.197222,113.541667],"America/Martinique":[14.6,-61.083333],"Europe/Malta":[35.9,14.516667],"Indian/Mauritius":[-20.166667,57.5],"Indian/Maldives":[4.166667,73.5],"America/Mexico_City":[19.4,-99.15],"America/Cancun":[21.083333,-86.766667],"America/Merida":[20.966667,-89.616667],"America/Monterrey":[25.666667,-100.316667],"America/Matamoros":[25.833333,-97.5],"America/Chihuahua":[28.633333,-106.083333],"America/Ciudad_Juarez":[31.733333,-106.483333],"America/Ojinaga":[29.566667,-104.416667],"America/Mazatlan":[23.216667,-106.416667],"America/Bahia_Banderas":[20.8,-105.25],"America/Hermosillo":[29.066667,-110.966667],"America/Tijuana":[32.533333,-117.016667],"Asia/Kuching":[1.55,110.333333],"Africa/Maputo":[-25.966667,32.583333],"Africa/Windhoek":[-22.566667,17.1],"Pacific/Noumea":[-22.266667,166.45],"Pacific/Norfolk":[-29.05,167.966667],"Africa/Lagos":[6.45,3.4],"America/Managua":[12.15,-86.283333],"Asia/Kathmandu":[27.716667,85.316667],"Pacific/Nauru":[-0.516667,166.916667],"Pacific/Niue":[-19.016667,-169.916667],"Pacific/Auckland":[-36.866667,174.766667],"Pacific/Chatham":[-43.95,-176.55],"America/Panama":[8.966667,-79.533333],"America/Lima":[-12.05,-77.05],"Pacific/Tahiti":[-17.533333,-149.566667],"Pacific/Marquesas":[-9.0,-139.5],"Pacific/Gambier":[-23.133333,-134.95],"Pacific/Port_Moresby":[-9.5,147.166667],"Pacific/Bougainville":[-6.216667,155.566667],"Asia/Manila":[14.586667,120.967778],"Asia/Karachi":[24.866667,67.05],"Europe/Warsaw":[52.25,21.0],"America/Miquelon":[47.05,-56.333333],"Pacific/Pitcairn":[-25.066667,-130.083333],"America/Puerto_Rico":[18.468333,-66.106111],"Asia/Gaza":[31.5,34.466667],"Asia/Hebron":[31.533333,35.095],"Europe/Lisbon":[38.716667,-9.133333],"Atlantic/Madeira":[32.633333,-16.9],"Atlantic/Azores":[37.733333,-25.666667],"Pacific/Palau":[7.333333,134.483333],"America/Asuncion":[-25.266667,-57.666667],"Asia/Qatar":[25.283333,51.533333],"Europe/Bucharest":[44.433333,26.1],"Europe/Belgrade":[44.833333,20.5],"Europe/Kaliningrad":[54.716667,20.5],"Europe/Moscow":[55.755833,37.617778],"Europe/Simferopol":[44.95,34.1],"Europe/Kirov":[58.6,49.65],"Europe/Volgograd":[48.733333,44.416667],"Europe/Astrakhan":[46.35,48.05],"Europe/Saratov":[51.566667,46.033333],"Europe/Ulyanovsk":[54.333333,48.4],"Europe/Samara":[53.2,50.15],"Asia/Yekaterinburg":[56.85,60.6],"Asia/Omsk":[55.0,73.4],"Asia/Novosibirsk":[55.033333,82.916667],"Asia/Barnaul":[53.366667,83.75],"Asia/Tomsk":[56.5,84.966667],"Asia/Novokuznetsk":[53.75,87.116667],"Asia/Krasnoyarsk":[56.016667,92.833333],"Asia/Irkutsk":[52.266667,104.333333],"Asia/Chita":[52.05,113.466667],"Asia/Yakutsk":[62.0,129.666667],"Asia/Khandyga":[62.656389,135.553889],"Asia/Vladivostok":[43.166667,131.933333],"Asia/Ust-Nera":[64.560278,143.226667],"Asia/Magadan":[59.566667,150.8],"Asia/Sakhalin":[46.966667,142.7],"Asia/Srednekolymsk":[67.466667,153.716667],"Asia/Kamchatka":[53.016667,158.65],"Asia/Anadyr":[64.75,177.483333],"Asia/Riyadh":[24.633333,46.716667],"Pacific/Guadalcanal":[-9.533333,160.2],"Africa/Khartoum":[15.6,32.533333],"Asia/Singapore":[1.283333,103.85],"America/Paramaribo":[5.833333,-55.166667],"Africa/Juba":[4.85,31.616667],"Africa/Sao_Tome":[0.333333,6.733333],"America/El_Salvador":[13.7,-89.2],"Asia/Damascus":[33.5,36.3],"America/Grand_Turk":[21.466667,-71.133333],"Africa/Ndjamena":[12.116667,15.05],"Asia/Bangkok":[13.75,100.516667],"Asia/Dushanbe":[38.583333,68.8],"Pacific/Fakaofo":[-9.366667,-171.233333],"Asia/Dili":[-8.55,125.583333],"Asia/Ashgabat":[37.95,58.383333],"Africa/Tunis":[36.8,10.183333],"Pacific/Tongatapu":[-21.133333,-175.2],"Europe/Istanbul":[41.016667,28.966667],"Asia/Taipei":[25.05,121.5],"Europe/Kyiv":[50.433333,30.516667],"America/New_York":[40.714167,-74.006389],"America/Detroit":[42.331389,-83.045833],"America/Kentucky/Louisville":[38.254167,-85.759444],"America/Kentucky/Monticello":[36.829722,-84.849167],"America/Indiana/Indianapolis":[39.768333,-86.158056],"America/Indiana/Vincennes":[38.677222,-87.528611],"America/Indiana/Winamac":[41.051389,-86.603056],"America/Indiana/Marengo":[38.375556,-86.344722],"America/Indiana/Petersburg":[38.491944,-87.278611],"America/Indiana/Vevay":[38.747778,-85.067222],"America/Chicago":[41.85,-87.65],"America/Indiana/Tell_City":[37.953056,-86.761389],"America/Indiana/Knox":[41.295833,-86.625],"America/Menominee":[45.107778,-87.614167],"America/North_Dakota/Center":[47.116389,-101.299167],"America/North_Dakota/New_Salem":[46.845,-101.410833],"America/North_Dakota/Beulah":[47.264167,-101.777778],"America/Denver":[39.739167,-104.984167],"America/Boise":[43.613611,-116.2025],"America/Phoenix":[33.448333,-112.073333],"America/Los_Angeles":[34.052222,-118.242778],"America/Anchorage":[61.218056,-149.900278],"America/Juneau":[58.301944,-134.419722],"America/Sitka":[57.176389,-135.301944],"America/Metlakatla":[55.126944,-131.576389],"America/Yakutat":[59.546944,-139.727222],"America/Nome":[64.501111,-165.406389],"America/Adak":[51.88,-176.658056],"Pacific/Honolulu":[21.306944,-157.858333],"America/Montevideo":[-34.909167,-56.2125],"Asia/Samarkand":[39.666667,66.8],"Asia/Tashkent":[41.333333,69.3],"America/Caracas":[10.5,-66.933333],"Asia/Ho_Chi_Minh":[10.75,106.666667],"Pacific/Efate":[-17.666667,168.416667],"Pacific/Apia":[-13.833333,-171.733333],"Africa/Johannesburg":[-26.25,28.0],"Etc/UTC":[0,0]};
+    const TIMEZONE_ALIASES = {"UTC":"Etc/UTC","Etc/UTC":"Etc/UTC","GMT":"Etc/UTC","Etc/GMT":"Etc/UTC","US/Eastern":"America/New_York","US/Central":"America/Chicago","US/Mountain":"America/Denver","US/Pacific":"America/Los_Angeles","US/Arizona":"America/Phoenix","US/Alaska":"America/Anchorage","US/Hawaii":"Pacific/Honolulu","Canada/Eastern":"America/Toronto","Canada/Central":"America/Winnipeg","Canada/Mountain":"America/Edmonton","Canada/Pacific":"America/Vancouver","Europe/London":"Europe/London","Asia/Riyadh":"Asia/Riyadh","Asia/Dubai":"Asia/Dubai","Asia/Karachi":"Asia/Karachi","Asia/Kolkata":"Asia/Kolkata","Asia/Jakarta":"Asia/Jakarta","Australia/Sydney":"Australia/Sydney"};
+    const latitudeInput = document.getElementById('latitude');
+    const longitudeInput = document.getElementById('longitude');
+    const timezoneInput = document.getElementById('timezonestring');
+    const openMapButton = document.getElementById('openAladhanMap');
+    const useBrowserLocationButton = document.getElementById('useBrowserLocation');
+    const mapModal = document.getElementById('aladhanMapModal');
+    const saveMapButton = document.getElementById('saveAladhanMap');
+    const cancelMapButton = document.getElementById('cancelAladhanMap');
+    const closeMapX = document.getElementById('closeAladhanMapX');
+    const status = document.getElementById('aladhanMapStatus');
+
+    let map = null;
+    let marker = null;
+    let pendingLatLng = null;
+
+    function validNumber(value) {
+        return value !== '' && Number.isFinite(Number(value));
+    }
+
+    function normalizeTimezoneName(value) {
+        const raw = (value || '').trim();
+        if (!raw) {
+            try {
+                return Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+            } catch (error) {
+                return '';
+            }
+        }
+        return raw;
+    }
+
+    function humanizeTimezoneName(tz) {
+        return tz.replace(/_/g, ' ');
+    }
+
+    function getTimezoneLatLng() {
+        const requested = normalizeTimezoneName(timezoneInput ? timezoneInput.value : '');
+        if (!requested) return null;
+        const canonical = TIMEZONE_ALIASES[requested] || requested;
+        const center = TIMEZONE_CENTERS[canonical];
+        if (!center) return null;
+        return {
+            lat: center[0],
+            lng: center[1],
+            zone: canonical,
+            requestedZone: requested
+        };
+    }
+
+    function getInitialMapState() {
+        const timezoneCenter = getTimezoneLatLng();
+        if (timezoneCenter) {
+            return {
+                lat: timezoneCenter.lat,
+                lng: timezoneCenter.lng,
+                zoom: 10,
+                source: 'timezone',
+                zone: timezoneCenter.zone,
+                requestedZone: timezoneCenter.requestedZone
+            };
+        }
+
+        if (validNumber(latitudeInput.value) && validNumber(longitudeInput.value)) {
+            return {
+                lat: Number(latitudeInput.value),
+                lng: Number(longitudeInput.value),
+                zoom: 10,
+                source: 'saved'
+            };
+        }
+
+        return {lat: MAKKAH.lat, lng: MAKKAH.lng, zoom: 3, source: 'fallback'};
+    }
+
+    function setLocationFields(lat, lng) {
+        latitudeInput.value = Number(lat).toFixed(6);
+        longitudeInput.value = Number(lng).toFixed(6);
+    }
+
+    function showModal() {
+        if (typeof openModal === 'function') {
+            openModal('aladhanMapModal');
+        } else {
+            mapModal.style.display = 'block';
+        }
+    }
+
+    function hideModal() {
+        if (typeof closeModal === 'function') {
+            closeModal('aladhanMapModal');
+        } else {
+            mapModal.style.display = 'none';
+        }
+    }
+
+    function updateMarker(latlng) {
+        pendingLatLng = {lat: latlng.lat, lng: latlng.lng};
+        if (marker) {
+            marker.setLatLng(pendingLatLng);
+        }
+    }
+
+    function initializeMap() {
+        if (typeof L === 'undefined') {
+            status.textContent = 'Map library could not load. Enter latitude and longitude manually, or reload this page when internet access is available.';
+            document.getElementById('aladhanMap').style.display = 'none';
+            return;
+        }
+
+        const start = getInitialMapState();
+        pendingLatLng = {lat: start.lat, lng: start.lng};
+        const zoom = start.zoom;
+        if (start.source === 'timezone') {
+            status.textContent = `Map starts at ${humanizeTimezoneName(start.requestedZone || start.zone)}. Click the map or drag the marker to set your exact location.`;
+        } else if (start.source === 'saved') {
+            status.textContent = 'Current saved location is loaded. Click the map or drag the marker to change it.';
+        } else {
+            status.textContent = 'No saved location or recognized timezone yet. The map starts near Makkah; click your actual location.';
+        }
+
+        if (!map) {
+            map = L.map('aladhanMap').setView([start.lat, start.lng], zoom);
+            L.tileLayer(OSM_TILE_URL, {
+                maxZoom: 19,
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+            marker = L.marker([start.lat, start.lng], {draggable: true}).addTo(map);
+            map.on('click', event => updateMarker(event.latlng.wrap()));
+            marker.on('dragend', event => updateMarker(event.target.getLatLng().wrap()));
+        } else {
+            map.setView([start.lat, start.lng], zoom);
+            marker.setLatLng([start.lat, start.lng]);
+        }
+
+        setTimeout(() => map.invalidateSize(), 150);
+    }
+
+    openMapButton.addEventListener('click', () => {
+        showModal();
+        setTimeout(initializeMap, 100);
+    });
+
+    saveMapButton.addEventListener('click', () => {
+        if (pendingLatLng) {
+            setLocationFields(pendingLatLng.lat, pendingLatLng.lng);
+        }
+        hideModal();
+    });
+
+    cancelMapButton.addEventListener('click', hideModal);
+    closeMapX.addEventListener('click', hideModal);
+
+    useBrowserLocationButton.addEventListener('click', () => {
+        if (!navigator.geolocation) {
+            status.textContent = 'Browser geolocation is not available. Use the map selector or enter coordinates manually.';
+            return;
+        }
+        useBrowserLocationButton.disabled = true;
+        useBrowserLocationButton.textContent = 'Locating…';
+        navigator.geolocation.getCurrentPosition(
+            position => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                setLocationFields(lat, lng);
+                pendingLatLng = {lat, lng};
+                if (map && marker) {
+                    map.setView([lat, lng], 12);
+                    marker.setLatLng([lat, lng]);
+                }
+                useBrowserLocationButton.disabled = false;
+                useBrowserLocationButton.textContent = 'Use browser location';
+            },
+            () => {
+                alert('Unable to get browser location. You can still select a location on the map or enter coordinates manually.');
+                useBrowserLocationButton.disabled = false;
+                useBrowserLocationButton.textContent = 'Use browser location';
+            },
+            {enableHighAccuracy: false, timeout: 10000, maximumAge: 300000}
+        );
+    });
+});
+</script>

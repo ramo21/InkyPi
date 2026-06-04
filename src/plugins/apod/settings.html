@@ -12,27 +12,135 @@
     </div>
 </div>
 
+<hr class="settings-divider">
+
+<div class="form-group">
+    <label for="showApodDate" class="form-label">Show image date</label>
+    <div class="toggle-container">
+        <input type="checkbox" id="showApodDate" name="showApodDate" class="toggle-checkbox" value="true"
+            onclick="this.value = this.checked ? 'true' : 'false'; toggleApodDateControls()">
+        <label for="showApodDate" class="toggle-label"></label>
+    </div>
+    <small class="form-help">Displays the date returned by NASA for the selected APOD image.</small>
+</div>
+
+<div class="form-group apod-date-control">
+    <label for="apodDatePosition" class="form-label">Image date location</label>
+    <select id="apodDatePosition" name="apodDatePosition" class="form-input">
+        <option value="bottom-right">Bottom right (default)</option>
+        <option value="bottom-center">Bottom center</option>
+        <option value="bottom-left">Bottom left</option>
+        <option value="middle-right">Middle right</option>
+        <option value="center">Center</option>
+        <option value="middle-left">Middle left</option>
+        <option value="top-right">Top right</option>
+        <option value="top-center">Top center</option>
+        <option value="top-left">Top left</option>
+    </select>
+</div>
+
+<div class="form-group apod-date-control">
+    <label for="apodDateFormat" class="form-label">Image date format</label>
+    <select id="apodDateFormat" name="apodDateFormat" class="form-input">
+        <option value="long">January 31, 2026</option>
+        <option value="medium">Jan 31, 2026</option>
+        <option value="iso">2026-01-31</option>
+        <option value="slash">1/31/2026</option>
+        <option value="day-month">31 Jan 2026</option>
+    </select>
+</div>
+
+<hr class="settings-divider">
+
+<div class="form-group">
+    <label for="showApodTitle" class="form-label">Show image title</label>
+    <div class="toggle-container">
+        <input type="checkbox" id="showApodTitle" name="showApodTitle" class="toggle-checkbox" value="false"
+            onclick="this.value = this.checked ? 'true' : 'false'; toggleApodTitleControls()">
+        <label for="showApodTitle" class="toggle-label"></label>
+    </div>
+    <small class="form-help">Displays the APOD title returned by NASA for the selected image.</small>
+</div>
+
+<div class="form-group apod-title-control">
+    <label for="apodTitlePosition" class="form-label">Image title location</label>
+    <select id="apodTitlePosition" name="apodTitlePosition" class="form-input">
+        <option value="bottom-left">Bottom left (default)</option>
+        <option value="bottom-center">Bottom center</option>
+        <option value="bottom-right">Bottom right</option>
+        <option value="middle-left">Middle left</option>
+        <option value="center">Center</option>
+        <option value="middle-right">Middle right</option>
+        <option value="top-left">Top left</option>
+        <option value="top-center">Top center</option>
+        <option value="top-right">Top right</option>
+    </select>
+    <small class="form-help">If title and date use the same area, the plugin stacks them so they do not fully cover each other.</small>
+</div>
+
 <script>
     function toggleDateField(toggle) {
         const $date = document.getElementById('customDate');
         $date.disabled = toggle.checked;
     }
 
+    function toggleApodDateControls() {
+        const $toggle = document.getElementById('showApodDate');
+        document.querySelectorAll('.apod-date-control').forEach((el) => {
+            el.style.display = $toggle.checked ? '' : 'none';
+        });
+    }
+
+    function toggleApodTitleControls() {
+        const $toggle = document.getElementById('showApodTitle');
+        document.querySelectorAll('.apod-title-control').forEach((el) => {
+            el.style.display = $toggle.checked ? '' : 'none';
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
+        const savedSettings = (typeof pluginSettings !== 'undefined' && pluginSettings) ? pluginSettings : {};
+        const hasSavedSettings = (typeof loadPluginSettings !== 'undefined' && loadPluginSettings);
+
         const $toggle = document.getElementById('randomizeApod');
         const $date = document.getElementById('customDate');
-
+        const $showDate = document.getElementById('showApodDate');
+        const $datePosition = document.getElementById('apodDatePosition');
+        const $dateFormat = document.getElementById('apodDateFormat');
+        const $showTitle = document.getElementById('showApodTitle');
+        const $titlePosition = document.getElementById('apodTitlePosition');
         const today = new Date().toISOString().split('T')[0];
 
-        if (loadPluginSettings) {
-            $toggle.checked = pluginSettings.randomizeApod === 'true';
-            $toggle.value = pluginSettings.randomizeApod;
-            $date.value = pluginSettings.customDate || today;
+        if (hasSavedSettings) {
+            $toggle.checked = savedSettings.randomizeApod === 'true';
+            $toggle.value = savedSettings.randomizeApod || 'false';
+            $date.value = savedSettings.customDate || today;
             $date.disabled = $toggle.checked;
+
+            $showDate.checked = savedSettings.showApodDate !== 'false';
+            $showDate.value = $showDate.checked ? 'true' : 'false';
+            $datePosition.value = savedSettings.apodDatePosition || 'bottom-right';
+            $dateFormat.value = savedSettings.apodDateFormat || 'long';
+
+            $showTitle.checked = savedSettings.showApodTitle === 'true';
+            $showTitle.value = $showTitle.checked ? 'true' : 'false';
+            $titlePosition.value = savedSettings.apodTitlePosition || 'bottom-left';
         } else {
             $toggle.checked = false;
-            $toggle.value = "false";
+            $toggle.value = 'false';
             $date.value = today;
+
+            $showDate.checked = true;
+            $showDate.value = 'true';
+            $datePosition.value = 'bottom-right';
+            $dateFormat.value = 'long';
+
+            $showTitle.checked = false;
+            $showTitle.value = 'false';
+            $titlePosition.value = 'bottom-left';
         }
+
+        toggleApodDateControls();
+        toggleApodTitleControls();
     });
 </script>

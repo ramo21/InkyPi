@@ -1,0 +1,79 @@
+{% extends "plugin.html" %}
+{% block content %}
+<div class="aladhan-dashboard">
+  {% if plugin_settings.displayRefreshTime == "true" %}
+  <div class="last-refresh">Last refresh: {{ last_refresh_time }} · Daily target: {{ daily_refresh_label }}</div>
+  {% endif %}
+
+  <header class="header">
+    <div class="title">{{ title }}</div>
+    {% if location_label %}<div class="subtitle">{{ location_label }}</div>{% endif %}
+    {% if plugin_settings.showHijri == "true" %}<div class="hijri-date">{{ today.hijri }}</div>{% endif %}
+    {% if plugin_settings.showGregorian == "true" %}<div class="gregorian-date">{{ today.weekday }} {{ today.gregorian }}</div>{% endif %}
+  </header>
+
+  {% if mode == "today" %}
+  <section class="next-card">
+    {% if plugin_settings.showNextPrayer == "true" and next_prayer %}
+      <div class="next-label">Next prayer</div>
+      <div class="next-prayer">{{ next_prayer.name }}</div>
+      <div class="next-time">{{ next_prayer.time }}</div>
+    {% else %}
+      <div class="next-prayer">Prayer Times</div>
+    {% endif %}
+  </section>
+
+  <section class="prayer-grid">
+    {% for prayer in today.prayers %}
+    <div class="prayer-card {% if next_prayer and prayer.name == next_prayer.name %}highlight{% endif %}">
+      <div class="prayer-name">{{ prayer.name }}</div>
+      <div class="prayer-time">{{ prayer.time }}</div>
+    </div>
+    {% endfor %}
+  </section>
+
+  {% if today.holidays %}
+  <footer class="note">{{ today.holidays | join(' · ') }}</footer>
+  {% endif %}
+  {% endif %}
+
+  {% if mode == "calendar" %}
+  <section class="calendar-list">
+    <div class="section-title">Prayer & Hijri Calendar</div>
+    {% for row in calendar_rows %}
+    <div class="calendar-row">
+      <div class="calendar-date">
+        <strong>{{ row.weekday[:3] }} {{ row.gregorian_day }}</strong>
+        <span>{{ row.hijri_day }} {{ row.hijri_month }}</span>
+      </div>
+      <div class="calendar-times">
+        <span>Fajr {{ row.fajr }}</span>
+        <span>Maghrib {{ row.maghrib }}</span>
+        <span>Isha {{ row.isha }}</span>
+      </div>
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if mode == "ramadan" %}
+  <section class="calendar-list ramadan-list">
+    <div class="section-title">{{ ramadan_title }}</div>
+    {% for row in ramadan_rows %}
+    <div class="calendar-row">
+      <div class="calendar-date">
+        <strong>{{ row.hijri_day }} Ramadan</strong>
+        <span>{{ row.weekday[:3] }} {{ row.gregorian_day }} {{ row.gregorian_month }}</span>
+      </div>
+      <div class="calendar-times">
+        <span>Suhoor {{ row.fajr }}</span>
+        <span>Iftar {{ row.maghrib }}</span>
+      </div>
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if method_name %}<footer class="method">{{ method_name }}</footer>{% endif %}
+</div>
+{% endblock %}
