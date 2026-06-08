@@ -39,6 +39,16 @@
 <hr class="settings-divider">
 
 <div class="form-group">
+    <label for="weatherProvider">Weather provider</label>
+    <select id="weatherProvider" name="weatherProvider" onchange="toggleWeatherProviderHelp()">
+        <option value="OpenMeteo">Open-Meteo (default, no API key)</option>
+        <option value="OpenWeatherMap">OpenWeatherMap (uses OPEN_WEATHER_MAP_SECRET)</option>
+    </select>
+    <small id="openMeteoHelp">Open-Meteo works without an API key.</small>
+    <small id="openWeatherHelp" style="display:none;">OpenWeatherMap requires OPEN_WEATHER_MAP_SECRET in your InkyPi .env file.</small>
+</div>
+
+<div class="form-group">
     <label for="units">Weather units</label>
     <select id="units" name="units">
         <option value="imperial">Imperial (°F, mph, inches)</option>
@@ -153,6 +163,14 @@
 </div>
 
 <script>
+function toggleWeatherProviderHelp() {
+    const provider = document.getElementById('weatherProvider')?.value || 'OpenMeteo';
+    const meteo = document.getElementById('openMeteoHelp');
+    const owm = document.getElementById('openWeatherHelp');
+    if (meteo) meteo.style.display = provider === 'OpenMeteo' ? '' : 'none';
+    if (owm) owm.style.display = provider === 'OpenWeatherMap' ? '' : 'none';
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const defaults = {
         locationName: '',
@@ -172,8 +190,9 @@ document.addEventListener('DOMContentLoaded', () => {
         adjustment: '0',
         methodSettings: '',
         tune: '',
+        weatherProvider: 'OpenMeteo',
         showWeatherForecast: 'true',
-        showWeatherDetails: 'true',
+        showWeatherDetails: 'false',
         showNextPrayer: 'true',
         showHijri: 'true'
     };
@@ -279,6 +298,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         closeMap();
     });
+    toggleWeatherProviderHelp();
+
     document.getElementById('useBrowserLocation').addEventListener('click', () => {
         const status = document.getElementById('combinedMapStatus');
         if (!navigator.geolocation) {

@@ -103,14 +103,20 @@ def _is_valid_timezone(timezone_name):
 
 
 class WeatherAladhan(BasePlugin):
-    """Combined Open-Meteo weather and AlAdhan prayer-time dashboard."""
+    """Combined weather-provider and AlAdhan prayer-time dashboard."""
 
     OPEN_METEO_ENDPOINT = "https://api.open-meteo.com/v1/forecast"
+    OPEN_WEATHER_MAP_ENDPOINT = "https://api.openweathermap.org/data/3.0/onecall"
     ALADHAN_TIMINGS_ENDPOINT = "https://api.aladhan.com/v1/timings/{date}"
 
     def generate_settings_template(self):
         template_params = super().generate_settings_template()
         template_params["style_settings"] = True
+        template_params["api_key"] = {
+            "required": False,
+            "service": "OpenWeatherMap",
+            "expected_key": "OPEN_WEATHER_MAP_SECRET",
+        }
         template_params["methods"] = METHODS
         template_params["device_timezone"] = self.get_system_timezone(default="Etc/UTC")
         return template_params
@@ -129,7 +135,7 @@ class WeatherAladhan(BasePlugin):
             time_format = settings.get("timeFormat")
 
         try:
-            weather_data = self.get_weather_data(lat, lon, timezone_name, settings)
+            weather_data = self.get_weather_data(lat, lon, timezone_name, settings, device_config)
             prayer_data = self.get_prayer_data(now, lat, lon, timezone_name, settings)
         except RuntimeError:
             raise
@@ -137,7 +143,7 @@ class WeatherAladhan(BasePlugin):
             logger.exception("Weather + Prayer API request failed")
             raise RuntimeError(f"Weather + Prayer request failed: {exc}")
 
-        weather = self.parse_weather(weather_data, settings)
+        weather = self.parse_weather(weather_data, settings, timezone_name)
         prayers = self.parse_prayers(prayer_data, now, time_format, settings)
 
         dimensions = device_config.get_resolution()
@@ -149,6 +155,7 @@ class WeatherAladhan(BasePlugin):
             "location_label": settings.get("locationName") or "",
             "weather": weather,
             "prayers": prayers,
+            "weather_provider_label": weather.get("provider_label", ""),
             "show_weather_forecast": _to_bool(settings.get("showWeatherForecast"), True),
             "show_weather_details": _to_bool(settings.get("showWeatherDetails"), True),
             "show_next_prayer": _to_bool(settings.get("showNextPrayer"), True),
@@ -178,6 +185,7 @@ class WeatherAladhan(BasePlugin):
             "longitude": "",
             "timezonestring": "",
             "dailyRefreshTime": "00:05",
+            "weatherProvider": "OpenMeteo",
             "units": "imperial",
             "forecastDays": "3",
             "method": "2",
@@ -190,7 +198,7 @@ class WeatherAladhan(BasePlugin):
             "tune": "",
             "timeFormat": "12h",
             "showWeatherForecast": "true",
-            "showWeatherDetails": "true",
+            "showWeatherDetails": "false",
             "showNextPrayer": "true",
             "showHijri": "true",
         }
@@ -199,6 +207,8 @@ class WeatherAladhan(BasePlugin):
         for key in ["showWeatherForecast", "showWeatherDetails", "showNextPrayer", "showHijri"]:
             merged[key] = "true" if _to_bool(merged.get(key), defaults[key] == "true") else "false"
         merged["dailyRefreshTime"] = self.normalize_hhmm(merged.get("dailyRefreshTime"), "Daily refresh time")
+        if merged.get("weatherProvider") not in {"OpenMeteo", "OpenWeatherMap"}:
+            raise RuntimeError("Weather provider must be OpenMeteo or OpenWeatherMap.")
         if merged.get("units") not in {"imperial", "metric"}:
             raise RuntimeError("Units must be imperial or metric.")
         if merged.get("timeFormat") not in {"12h", "24h"}:
@@ -284,7 +294,13 @@ class WeatherAladhan(BasePlugin):
             pass
         return default
 
-    def get_weather_data(self, lat, lon, timezone_name, settings):
+    def get_weather_data(self, lat, lon, timezone_name, settings, device_config):
+        provider = settings.get("weatherProvider", "OpenMeteo")
+        if provider == "OpenWeatherMap":
+            return self.get_openweathermap_data(lat, lon, settings, device_config)
+        return self.get_openmeteo_data(lat, lon, timezone_name, settings)
+
+    def get_openmeteo_data(self, lat, lon, timezone_name, settings):
         units = settings.get("units", "imperial")
         forecast_days = int(settings.get("forecastDays", "3"))
         forecast_days = min(max(forecast_days, 1), 7)
@@ -311,7 +327,31 @@ class WeatherAladhan(BasePlugin):
         response = requests.get(self.OPEN_METEO_ENDPOINT, params=params, timeout=30)
         if not 200 <= response.status_code < 300:
             raise RuntimeError(f"Open-Meteo request failed with status {response.status_code}.")
-        return response.json()
+        return {"provider": "OpenMeteo", "payload": response.json()}
+
+    def get_openweathermap_data(self, lat, lon, settings, device_config):
+        api_key = self.load_openweather_api_key(device_config)
+        if not api_key:
+            raise RuntimeError("OpenWeatherMap selected, but OPEN_WEATHER_MAP_SECRET is not configured.")
+        params = {
+            "lat": lat,
+            "lon": lon,
+            "appid": api_key,
+            "units": settings.get("units", "imperial"),
+            "exclude": "minutely,hourly,alerts",
+        }
+        response = requests.get(self.OPEN_WEATHER_MAP_ENDPOINT, params=params, timeout=30)
+        if not 200 <= response.status_code < 300:
+            raise RuntimeError(f"OpenWeatherMap request failed with status {response.status_code}.")
+        return {"provider": "OpenWeatherMap", "payload": response.json()}
+
+    def load_openweather_api_key(self, device_config):
+        if not device_config:
+            return os.environ.get("OPEN_WEATHER_MAP_SECRET")
+        try:
+            return device_config.load_env_key("OPEN_WEATHER_MAP_SECRET")
+        except Exception:
+            return os.environ.get("OPEN_WEATHER_MAP_SECRET")
 
     def get_prayer_data(self, now, lat, lon, timezone_name, settings):
         date_path = now.strftime("%d-%m-%Y")
@@ -339,7 +379,14 @@ class WeatherAladhan(BasePlugin):
             raise RuntimeError(payload.get("status") or "AlAdhan returned an error.")
         return payload
 
-    def parse_weather(self, weather_data, settings):
+    def parse_weather(self, weather_data, settings, timezone_name):
+        provider = weather_data.get("provider", "OpenMeteo")
+        payload = weather_data.get("payload", {})
+        if provider == "OpenWeatherMap":
+            return self.parse_openweathermap_weather(payload, settings, timezone_name)
+        return self.parse_openmeteo_weather(payload, settings)
+
+    def parse_openmeteo_weather(self, weather_data, settings):
         current = weather_data.get("current", {})
         daily = weather_data.get("daily", {})
         units = settings.get("units", "imperial")
@@ -348,7 +395,8 @@ class WeatherAladhan(BasePlugin):
         rain_unit = "in" if units == "imperial" else "mm"
         code = int(current.get("weather_code", 0) or 0)
         forecast = []
-        for i, day in enumerate(daily.get("time", [])[: int(settings.get("forecastDays", "3"))]):
+        max_days = min(int(settings.get("forecastDays", "3")), 7)
+        for i, day in enumerate(daily.get("time", [])[:max_days]):
             try:
                 dt = datetime.fromisoformat(day)
                 day_label = dt.strftime("%a")
@@ -361,20 +409,129 @@ class WeatherAladhan(BasePlugin):
                 "low": self._round(daily.get("temperature_2m_min", [])[i] if i < len(daily.get("temperature_2m_min", [])) else None),
                 "precip": self._round(daily.get("precipitation_probability_max", [])[i] if i < len(daily.get("precipitation_probability_max", [])) else None),
                 "summary": WEATHER_CODE_DESCRIPTIONS.get(daily_code, "Weather"),
+                "icon": self.weather_icon_from_code(daily_code),
             })
         return {
+            "provider_label": "Open-Meteo",
             "temperature": self._round(current.get("temperature_2m")),
             "feels_like": self._round(current.get("apparent_temperature")),
             "humidity": self._round(current.get("relative_humidity_2m")),
-            "precipitation": current.get("precipitation", 0),
+            "precipitation": self._format_precip(current.get("precipitation", 0)),
             "wind_speed": self._round(current.get("wind_speed_10m")),
             "wind_direction": self.get_wind_arrow(current.get("wind_direction_10m", 0)),
             "summary": WEATHER_CODE_DESCRIPTIONS.get(code, "Weather"),
+            "icon": self.weather_icon_from_code(code),
             "temperature_unit": temperature_unit,
             "wind_unit": wind_unit,
             "rain_unit": rain_unit,
             "forecast": forecast,
         }
+
+    def parse_openweathermap_weather(self, weather_data, settings, timezone_name):
+        current = weather_data.get("current", {})
+        daily = weather_data.get("daily", [])
+        units = settings.get("units", "imperial")
+        temperature_unit = "°F" if units == "imperial" else "°C"
+        wind_unit = "mph" if units == "imperial" else "m/s"
+        rain_unit = "in" if units == "imperial" else "mm"
+        description = self._weather_description(current)
+        forecast = []
+        max_days = min(int(settings.get("forecastDays", "3")), 7)
+        tz = ZoneInfo(timezone_name) if ZoneInfo and _is_valid_timezone(timezone_name) else timezone.utc
+        for day in daily[:max_days]:
+            try:
+                dt = datetime.fromtimestamp(day.get("dt", 0), tz=timezone.utc).astimezone(tz)
+                day_label = dt.strftime("%a")
+            except Exception:
+                day_label = "Day"
+            pop = day.get("pop", 0)
+            forecast.append({
+                "day": day_label,
+                "high": self._round((day.get("temp") or {}).get("max")),
+                "low": self._round((day.get("temp") or {}).get("min")),
+                "precip": self._round(float(pop or 0) * 100),
+                "summary": self._weather_description(day),
+                "icon": self.weather_icon_from_openweather(day),
+            })
+        precipitation = self._openweather_precip(current, units)
+        return {
+            "provider_label": "OpenWeatherMap",
+            "temperature": self._round(current.get("temp")),
+            "feels_like": self._round(current.get("feels_like")),
+            "humidity": self._round(current.get("humidity")),
+            "precipitation": self._format_precip(precipitation),
+            "wind_speed": self._round(current.get("wind_speed")),
+            "wind_direction": self.get_wind_arrow(current.get("wind_deg", 0)),
+            "summary": description,
+            "icon": self.weather_icon_from_openweather(current),
+            "temperature_unit": temperature_unit,
+            "wind_unit": wind_unit,
+            "rain_unit": rain_unit,
+            "forecast": forecast,
+        }
+
+    def _weather_description(self, block):
+        try:
+            value = (block.get("weather") or [{}])[0].get("description") or (block.get("weather") or [{}])[0].get("main")
+            return str(value).title() if value else "Weather"
+        except Exception:
+            return "Weather"
+
+    def _openweather_precip(self, current, units):
+        value = 0.0
+        for key in ("rain", "snow"):
+            item = current.get(key) or {}
+            value += float(item.get("1h") or item.get("3h") or 0)
+        if units == "imperial":
+            return value / 25.4
+        return value
+
+    def _format_precip(self, value):
+        try:
+            value = float(value)
+        except Exception:
+            return "0"
+        if value == 0:
+            return "0"
+        if value < 1:
+            return f"{value:.2f}".rstrip("0").rstrip(".")
+        return str(int(round(value)))
+
+    def weather_icon_from_code(self, code):
+        try:
+            code = int(code)
+        except Exception:
+            return "☼"
+        if code in {0, 1}:
+            return "☼"
+        if code in {2, 3}:
+            return "☁"
+        if code in {45, 48}:
+            return "≋"
+        if code in {51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82}:
+            return "☂"
+        if code in {71, 73, 75, 77, 85, 86}:
+            return "✻"
+        if code in {95, 96, 99}:
+            return "ϟ"
+        return "☼"
+
+    def weather_icon_from_openweather(self, block):
+        try:
+            weather_id = int((block.get("weather") or [{}])[0].get("id", 800))
+        except Exception:
+            return "☼"
+        if 200 <= weather_id < 300:
+            return "ϟ"
+        if 300 <= weather_id < 600:
+            return "☂"
+        if 600 <= weather_id < 700:
+            return "✻"
+        if 700 <= weather_id < 800:
+            return "≋"
+        if weather_id == 800:
+            return "☼"
+        return "☁"
 
     def parse_prayers(self, prayer_data, now, time_format, settings):
         data = prayer_data.get("data", {})

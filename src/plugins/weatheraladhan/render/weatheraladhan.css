@@ -3,174 +3,267 @@ html, body {
     width: 100%;
     height: 100%;
     font-family: Arial, Helvetica, sans-serif;
-    color: #151515;
-    background: #f7f3e8;
+    color: #000;
+    background: #fff;
+    overflow: hidden;
 }
+* { box-sizing: border-box; }
 .dashboard {
-    box-sizing: border-box;
     width: 100dvw;
     height: 100dvh;
-    padding: 4dvh 4dvw;
+    padding: 2.8dvh 3dvw;
     display: flex;
     flex-direction: column;
-    gap: 3dvh;
+    gap: 2dvh;
+    overflow: hidden;
 }
-.header {
+.topbar {
+    flex: 0 0 auto;
+    min-height: 0;
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    border-bottom: 0.25dvh solid #222;
-    padding-bottom: 1.4dvh;
+    gap: 2dvw;
+    border-bottom: 0.32dvh solid #000;
+    padding-bottom: 1.2dvh;
 }
 h1 {
     margin: 0;
-    font-size: clamp(28px, 5.6dvw, 64px);
-    line-height: 1;
+    font-size: clamp(24px, 4.6dvw, 54px);
+    line-height: 0.98;
+    font-weight: 900;
+    letter-spacing: -0.03em;
 }
-.location {
-    margin-top: 0.7dvh;
-    font-size: clamp(14px, 2.1dvw, 28px);
+.meta-line {
+    margin-top: 0.5dvh;
+    font-size: clamp(11px, 1.8dvw, 20px);
     font-weight: 700;
+    white-space: nowrap;
 }
-.updated {
+.dot { padding: 0 0.6dvw; }
+.refresh-box {
     text-align: right;
-    font-size: clamp(10px, 1.55dvw, 20px);
-    line-height: 1.25;
+    border: 0.22dvh solid #000;
+    border-radius: 1dvh;
+    padding: 0.8dvh 1dvw;
+    min-width: 18dvw;
+    font-size: clamp(9px, 1.4dvw, 16px);
+    line-height: 1.15;
 }
-.grid {
-    flex: 1;
+.refresh-box b, .refresh-box span { display: block; }
+.main-grid {
+    flex: 1 1 auto;
     min-height: 0;
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 3dvw;
-}
-.card {
-    border: 0.32dvh solid #222;
-    border-radius: 2.2dvh;
-    padding: 2.4dvh 2.4dvw;
-    background: rgba(255,255,255,0.42);
-    box-sizing: border-box;
+    grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+    gap: 2dvw;
     overflow: hidden;
 }
-.section-title {
-    font-size: clamp(20px, 3.2dvw, 40px);
-    font-weight: 900;
-    margin-bottom: 1.5dvh;
-}
-.weather-current {
-    display: flex;
-    align-items: center;
-    gap: 2dvw;
-    margin-bottom: 2dvh;
-}
-.temperature {
-    font-size: clamp(52px, 12dvw, 116px);
-    font-weight: 900;
-    line-height: 0.9;
-}
-.temperature span {
-    font-size: 0.33em;
-    vertical-align: top;
-    margin-left: 0.2dvw;
-}
-.summary strong {
-    display: block;
-    font-size: clamp(18px, 3dvw, 34px);
-    line-height: 1.05;
-}
-.summary span {
-    display: block;
-    margin-top: 0.7dvh;
-    font-size: clamp(13px, 2dvw, 24px);
-}
-.weather-details {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1dvw;
-    margin: 1.5dvh 0 2dvh;
-}
-.weather-details div {
-    border-top: 0.18dvh solid #222;
-    padding-top: 0.8dvh;
-}
-.weather-details b {
-    display: block;
-    font-size: clamp(15px, 2.3dvw, 28px);
-}
-.weather-details span {
-    display: block;
-    font-size: clamp(10px, 1.45dvw, 18px);
-}
-.forecast {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1dvw;
-}
-.forecast-day {
-    padding: 1dvh 0.8dvw;
-    border: 0.18dvh solid #222;
-    border-radius: 1dvh;
-    text-align: center;
-}
-.forecast-day .day {
-    font-weight: 900;
-    font-size: clamp(13px, 2dvw, 22px);
-}
-.temps {
-    font-size: clamp(13px, 1.8dvw, 22px);
-    font-weight: 700;
-}
-.rain {
-    font-size: clamp(10px, 1.4dvw, 17px);
-}
-.hijri {
-    font-size: clamp(13px, 2.1dvw, 26px);
-    font-weight: 700;
-    margin-top: -0.8dvh;
-    margin-bottom: 1.5dvh;
-}
-.next-prayer {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    gap: 1dvw;
-    align-items: center;
-    background: #222;
-    color: #fff;
-    border-radius: 1.3dvh;
-    padding: 1.1dvh 1.1dvw;
-    margin-bottom: 1.4dvh;
-}
-.next-prayer span {
-    font-size: clamp(10px, 1.4dvw, 18px);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-.next-prayer strong, .next-prayer b {
-    font-size: clamp(16px, 2.7dvw, 34px);
-}
-.prayer-list {
+.panel {
+    min-height: 0;
+    border: 0.36dvh solid #000;
+    border-radius: 1.6dvh;
+    padding: 1.8dvh 1.8dvw;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
-    gap: 0.7dvh;
+}
+.panel-title {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 0.9dvw;
+    font-size: clamp(18px, 3dvw, 34px);
+    font-weight: 900;
+    line-height: 1;
+    margin-bottom: 1.3dvh;
+    border-bottom: 0.18dvh solid #000;
+    padding-bottom: 0.9dvh;
+}
+.title-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.35em;
+    height: 1.35em;
+    border: 0.14em solid #000;
+    border-radius: 50%;
+    font-size: 0.8em;
+    line-height: 1;
+}
+.panel-title small {
+    margin-left: auto;
+    font-size: clamp(8px, 1.2dvw, 14px);
+    font-weight: 700;
+    opacity: 0.8;
+}
+.weather-now {
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 1.6dvw;
+    align-items: center;
+    margin-bottom: 1.4dvh;
+}
+.big-temp {
+    font-size: clamp(48px, 9.5dvw, 104px);
+    font-weight: 900;
+    line-height: 0.82;
+    letter-spacing: -0.08em;
+}
+.big-temp sup {
+    font-size: 0.25em;
+    vertical-align: super;
+    letter-spacing: 0;
+    margin-left: 0.2dvw;
+}
+.weather-summary b {
+    display: block;
+    font-size: clamp(15px, 2.35dvw, 28px);
+    line-height: 1.05;
+}
+.weather-summary span {
+    display: block;
+    margin-top: 0.5dvh;
+    font-size: clamp(11px, 1.6dvw, 19px);
+    font-weight: 700;
+}
+.metric-strip {
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.8dvw;
+    margin-bottom: 1.2dvh;
+}
+.metric-strip div {
+    border: 0.18dvh solid #000;
+    border-radius: 0.8dvh;
+    padding: 0.7dvh 0.6dvw;
+    text-align: center;
+    overflow: hidden;
+}
+.metric-strip b {
+    display: block;
+    font-size: clamp(11px, 1.7dvw, 20px);
+    line-height: 1.05;
+}
+.metric-strip span {
+    display: block;
+    font-size: clamp(8px, 1.15dvw, 13px);
+    font-weight: 700;
+}
+.forecast-grid {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+    gap: 0.7dvw;
+    align-items: stretch;
+}
+.forecast-day {
+    min-width: 0;
+    border: 0.18dvh solid #000;
+    border-radius: 0.8dvh;
+    padding: 0.8dvh 0.5dvw;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.25dvh;
+    overflow: hidden;
+}
+.forecast-icon {
+    font-size: clamp(15px, 2.3dvw, 26px);
+    line-height: 1;
+}
+.forecast-day b {
+    font-size: clamp(10px, 1.55dvw, 18px);
+    line-height: 1;
+}
+.forecast-day span {
+    font-size: clamp(9px, 1.35dvw, 16px);
+    font-weight: 900;
+    line-height: 1;
+}
+.forecast-day small {
+    font-size: clamp(8px, 1.05dvw, 12px);
+    font-weight: 700;
+    line-height: 1;
+}
+.many-days .forecast-day { padding-left: 0.2dvw; padding-right: 0.2dvw; }
+.hijri-date {
+    flex: 0 0 auto;
+    font-size: clamp(11px, 1.75dvw, 20px);
+    line-height: 1.15;
+    font-weight: 700;
+    margin: -0.4dvh 0 1.1dvh;
+}
+.next-card {
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 0.8dvw;
+    border: 0.26dvh solid #000;
+    border-radius: 1dvh;
+    padding: 0.9dvh 0.9dvw;
+    margin-bottom: 0.9dvh;
+    background: #000;
+    color: #fff;
+}
+.next-card span {
+    font-size: clamp(8px, 1.15dvw, 13px);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 900;
+}
+.next-card b, .next-card strong {
+    font-size: clamp(13px, 2.15dvw, 25px);
+    line-height: 1;
+}
+.prayer-grid {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: repeat(6, minmax(0, 1fr));
+    gap: 0.55dvh;
 }
 .prayer-row {
+    min-height: 0;
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    border-bottom: 0.16dvh solid #999;
-    padding: 0.55dvh 0;
-    font-size: clamp(16px, 2.55dvw, 32px);
+    justify-content: space-between;
+    gap: 1dvw;
+    border-bottom: 0.16dvh solid #000;
+    padding: 0 0.2dvw;
+    font-size: clamp(13px, 2.1dvw, 24px);
+    line-height: 1;
 }
+.prayer-row span { font-weight: 700; }
+.prayer-row b { font-weight: 900; white-space: nowrap; }
 .prayer-row.current {
-    font-weight: 900;
-    border-bottom: 0.3dvh solid #222;
+    border: 0.2dvh solid #000;
+    border-radius: 0.7dvh;
+    padding: 0 0.6dvw;
+    background: #f2f2f2;
 }
-.method {
-    margin-top: 1.2dvh;
-    font-size: clamp(9px, 1.3dvw, 16px);
+.method-line {
+    flex: 0 0 auto;
+    margin-top: 0.8dvh;
+    font-size: clamp(7px, 1.05dvw, 12px);
+    line-height: 1.15;
     opacity: 0.75;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 @media (orientation: portrait) {
-    .grid { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
-    .forecast { grid-template-columns: repeat(3, 1fr); }
+    .dashboard { padding: 2.2dvh 3dvw; gap: 1.2dvh; }
+    .topbar { padding-bottom: 0.8dvh; }
+    .main-grid { grid-template-columns: 1fr; grid-template-rows: minmax(0, 0.92fr) minmax(0, 1.08fr); gap: 1.2dvh; }
+    .panel { padding: 1.2dvh 2.2dvw; }
+    .panel-title { margin-bottom: 0.8dvh; padding-bottom: 0.6dvh; }
+    .weather-now { margin-bottom: 0.8dvh; }
+    .metric-strip { margin-bottom: 0.8dvh; }
+    .forecast-day small { display: none; }
 }
