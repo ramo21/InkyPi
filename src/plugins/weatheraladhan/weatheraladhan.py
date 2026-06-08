@@ -1,14 +1,16 @@
 """
 Weather + AlAdhan plugin for InkyPi.
 
-This combined dashboard shows a simple current-weather/forecast summary from
-Open-Meteo and daily prayer times / Hijri date from AlAdhan.
+This combined dashboard blends the parent Weather plugin layout with the
+AlAdhan prayer-time layout. It supports Open-Meteo and OpenWeatherMap weather
+providers, color in-screen weather icons, and the black-and-white plugin picker icon.
 """
 
 from datetime import datetime, timedelta, timezone
 import logging
 import os
 import re
+import math
 from urllib.parse import quote
 
 import requests
@@ -150,20 +152,35 @@ class WeatherAladhan(BasePlugin):
         if device_config.get_config("orientation") == "vertical":
             dimensions = dimensions[::-1]
 
+        location_label = settings.get("locationName") or ""
+        if settings.get("titleSelection") == "location" and location_label:
+            title = location_label
+        elif settings.get("titleSelection") == "both" and location_label:
+            title = f"{location_label} · {settings.get('customTitle') or 'Weather + Prayer Times'}"
+        else:
+            title = settings.get("customTitle") or "Weather + Prayer Times"
+
         template_params = {
-            "title": settings.get("customTitle") or "Weather + Prayer Times",
-            "location_label": settings.get("locationName") or "",
+            "title": title,
+            "location_label": location_label,
             "weather": weather,
             "prayers": prayers,
             "weather_provider_label": weather.get("provider_label", ""),
             "show_weather_forecast": _to_bool(settings.get("showWeatherForecast"), True),
             "show_weather_details": _to_bool(settings.get("showWeatherDetails"), True),
+            "show_weather_graph": _to_bool(settings.get("showWeatherGraph"), False),
+            "show_rain_amount": _to_bool(settings.get("showRainAmount"), True),
+            "show_moon_phase": _to_bool(settings.get("showMoonPhase"), False),
             "show_next_prayer": _to_bool(settings.get("showNextPrayer"), True),
             "show_hijri": _to_bool(settings.get("showHijri"), True),
+            "show_gregorian": _to_bool(settings.get("showGregorian"), True),
+            "show_prayer_method": _to_bool(settings.get("showPrayerMethod"), True),
             "method_name": prayer_data.get("data", {}).get("meta", {}).get("method", {}).get("name", ""),
+            "display_refresh_time": _to_bool(settings.get("displayRefreshTime"), True),
             "last_refresh_time": self.format_dt(now, time_format),
             "daily_refresh_label": self.format_hhmm(settings.get("dailyRefreshTime", "00:05"), time_format),
             "timezone_name": timezone_name,
+            "layout_density": settings.get("layoutDensity", "balanced"),
             "plugin_settings": settings,
         }
 
@@ -197,14 +214,29 @@ class WeatherAladhan(BasePlugin):
             "methodSettings": "",
             "tune": "",
             "timeFormat": "12h",
+            "titleSelection": "custom",
+            "weatherTimeZone": "localTimeZone",
+            "displayRefreshTime": "true",
             "showWeatherForecast": "true",
-            "showWeatherDetails": "false",
+            "showWeatherDetails": "true",
+            "showWeatherGraph": "false",
+            "showRainAmount": "true",
+            "showMoonPhase": "false",
             "showNextPrayer": "true",
             "showHijri": "true",
+            "showGregorian": "true",
+            "showPrayerMethod": "true",
+            "showSunrisePrayer": "true",
+            "layoutDensity": "balanced",
         }
         merged = dict(defaults)
         merged.update(settings or {})
-        for key in ["showWeatherForecast", "showWeatherDetails", "showNextPrayer", "showHijri"]:
+        bool_keys = [
+            "displayRefreshTime", "showWeatherForecast", "showWeatherDetails",
+            "showWeatherGraph", "showRainAmount", "showMoonPhase", "showNextPrayer",
+            "showHijri", "showGregorian", "showPrayerMethod", "showSunrisePrayer",
+        ]
+        for key in bool_keys:
             merged[key] = "true" if _to_bool(merged.get(key), defaults[key] == "true") else "false"
         merged["dailyRefreshTime"] = self.normalize_hhmm(merged.get("dailyRefreshTime"), "Daily refresh time")
         if merged.get("weatherProvider") not in {"OpenMeteo", "OpenWeatherMap"}:
@@ -213,6 +245,12 @@ class WeatherAladhan(BasePlugin):
             raise RuntimeError("Units must be imperial or metric.")
         if merged.get("timeFormat") not in {"12h", "24h"}:
             merged["timeFormat"] = "12h"
+        if merged.get("titleSelection") not in {"custom", "location", "both"}:
+            merged["titleSelection"] = "custom"
+        if merged.get("weatherTimeZone") not in {"localTimeZone", "locationTimeZone"}:
+            merged["weatherTimeZone"] = "localTimeZone"
+        if merged.get("layoutDensity") not in {"compact", "balanced", "detailed"}:
+            merged["layoutDensity"] = "balanced"
         self._validate_aladhan_settings(merged)
         return merged
 
@@ -304,12 +342,13 @@ class WeatherAladhan(BasePlugin):
         units = settings.get("units", "imperial")
         forecast_days = int(settings.get("forecastDays", "3"))
         forecast_days = min(max(forecast_days, 1), 7)
+        weather_timezone = "auto" if settings.get("weatherTimeZone") == "locationTimeZone" else timezone_name
         params = {
             "latitude": lat,
             "longitude": lon,
-            "current": "temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,wind_direction_10m,is_day",
-            "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
-            "timezone": timezone_name,
+            "current": "temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,wind_direction_10m,is_day,surface_pressure",
+            "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset",
+            "timezone": weather_timezone,
             "forecast_days": forecast_days,
         }
         if units == "imperial":
@@ -383,7 +422,10 @@ class WeatherAladhan(BasePlugin):
         provider = weather_data.get("provider", "OpenMeteo")
         payload = weather_data.get("payload", {})
         if provider == "OpenWeatherMap":
-            return self.parse_openweathermap_weather(payload, settings, timezone_name)
+            weather_timezone = timezone_name
+            if settings.get("weatherTimeZone") == "locationTimeZone" and _is_valid_timezone(payload.get("timezone")):
+                weather_timezone = payload.get("timezone")
+            return self.parse_openweathermap_weather(payload, settings, weather_timezone)
         return self.parse_openmeteo_weather(payload, settings)
 
     def parse_openmeteo_weather(self, weather_data, settings):
@@ -410,7 +452,11 @@ class WeatherAladhan(BasePlugin):
                 "precip": self._round(daily.get("precipitation_probability_max", [])[i] if i < len(daily.get("precipitation_probability_max", [])) else None),
                 "summary": WEATHER_CODE_DESCRIPTIONS.get(daily_code, "Weather"),
                 "icon": self.weather_icon_from_code(daily_code),
+                "icon_path": self.weather_icon_path_from_code(daily_code, 1),
+                "moon_phase_icon": self.moon_phase_icon_path(dt.date()),
+                "moon_phase_label": self.moon_phase_label(dt.date()),
             })
+        self.add_forecast_graph_heights(forecast)
         return {
             "provider_label": "Open-Meteo",
             "today_label": self._format_weather_today_label((daily.get("time") or [None])[0]),
@@ -422,10 +468,13 @@ class WeatherAladhan(BasePlugin):
             "wind_direction": self.get_wind_arrow(current.get("wind_direction_10m", 0)),
             "summary": WEATHER_CODE_DESCRIPTIONS.get(code, "Weather"),
             "icon": self.weather_icon_from_code(code),
+            "icon_path": self.weather_icon_path_from_code(code, current.get("is_day", 1)),
             "temperature_unit": temperature_unit,
             "wind_unit": wind_unit,
             "rain_unit": rain_unit,
             "forecast": forecast,
+            "data_points": self.parse_openmeteo_data_points(weather_data, settings),
+            "hourly_points": [],
         }
 
     def parse_openweathermap_weather(self, weather_data, settings, timezone_name):
@@ -453,7 +502,11 @@ class WeatherAladhan(BasePlugin):
                 "precip": self._round(float(pop or 0) * 100),
                 "summary": self._weather_description(day),
                 "icon": self.weather_icon_from_openweather(day),
+                "icon_path": self.weather_icon_path_from_openweather(day),
+                "moon_phase_icon": self.moon_phase_icon_path(dt.date()),
+                "moon_phase_label": self.moon_phase_label(dt.date()),
             })
+        self.add_forecast_graph_heights(forecast)
         precipitation = self._openweather_precip(current, units)
         return {
             "provider_label": "OpenWeatherMap",
@@ -466,11 +519,221 @@ class WeatherAladhan(BasePlugin):
             "wind_direction": self.get_wind_arrow(current.get("wind_deg", 0)),
             "summary": description,
             "icon": self.weather_icon_from_openweather(current),
+            "icon_path": self.weather_icon_path_from_openweather(current),
             "temperature_unit": temperature_unit,
             "wind_unit": wind_unit,
             "rain_unit": rain_unit,
             "forecast": forecast,
+            "data_points": self.parse_openweathermap_data_points(weather_data, settings, timezone_name),
+            "hourly_points": [],
         }
+
+
+    def add_forecast_graph_heights(self, forecast):
+        """Add normalized bar heights so the mini graph is visible in °F and °C."""
+        values = []
+        for day in forecast:
+            try:
+                values.append(float(day.get("high")))
+            except Exception:
+                pass
+        if not values:
+            for day in forecast:
+                day["graph_height"] = 50
+            return forecast
+        low = min(values)
+        high = max(values)
+        spread = max(1.0, high - low)
+        for day in forecast:
+            try:
+                value = float(day.get("high"))
+                day["graph_height"] = int(28 + ((value - low) / spread) * 68)
+            except Exception:
+                day["graph_height"] = 35
+        return forecast
+
+
+    def icon_path(self, icon_name):
+        return self.get_plugin_dir(f"icons/{icon_name}.png")
+
+    def weather_icon_name_from_code(self, code, is_day=1):
+        try:
+            code = int(code)
+        except Exception:
+            return "01d"
+        suffix = "d" if str(is_day) != "0" else "n"
+        if code == 0:
+            return f"01{suffix}"
+        if code == 1:
+            return f"022{suffix}"
+        if code == 2:
+            return f"02{suffix}"
+        if code == 3:
+            return "04d"
+        if code in {45, 48}:
+            return "50d" if code == 45 else "48d"
+        if code in {51, 61, 80}:
+            return "51d"
+        if code in {53, 63, 81}:
+            return "53d"
+        if code in {55, 65, 82}:
+            return "09d"
+        if code in {56, 66}:
+            return "56d"
+        if code in {57, 67}:
+            return "57d"
+        if code in {71, 85}:
+            return "71d"
+        if code == 73:
+            return "73d"
+        if code in {75, 86}:
+            return "13d"
+        if code == 77:
+            return "77d"
+        if code in {95, 96, 99}:
+            return "11d"
+        return "01d"
+
+    def weather_icon_path_from_code(self, code, is_day=1):
+        return self.icon_path(self.weather_icon_name_from_code(code, is_day))
+
+    def weather_icon_name_from_openweather(self, block):
+        try:
+            icon = (block.get("weather") or [{}])[0].get("icon")
+            if icon:
+                base = icon[:2]
+                suffix = icon[-1]
+                if base in {"01", "02", "10"}:
+                    return f"{base}{suffix}"
+                if base == "03":
+                    return "03d"
+                if base == "04":
+                    return "04d"
+                if base == "09":
+                    return "09d"
+                if base == "11":
+                    return "11d"
+                if base == "13":
+                    return "13d"
+                if base == "50":
+                    return "50d"
+        except Exception:
+            pass
+        return self.weather_icon_name_from_openweather_id(block)
+
+    def weather_icon_name_from_openweather_id(self, block):
+        try:
+            weather_id = int((block.get("weather") or [{}])[0].get("id", 800))
+        except Exception:
+            return "01d"
+        if 200 <= weather_id < 300:
+            return "11d"
+        if 300 <= weather_id < 600:
+            return "10d"
+        if 600 <= weather_id < 700:
+            return "13d"
+        if 700 <= weather_id < 800:
+            return "50d"
+        if weather_id == 800:
+            return "01d"
+        return "02d"
+
+    def weather_icon_path_from_openweather(self, block):
+        return self.icon_path(self.weather_icon_name_from_openweather(block))
+
+    def moon_phase_icon_path(self, target_date):
+        # Lightweight moon phase approximation so the combined plugin does not
+        # require extra work beyond dependencies already used by InkyPi Weather.
+        return self.icon_path(self.moon_phase_name(target_date))
+
+    def moon_phase_label(self, target_date):
+        labels = {
+            "newmoon": "New",
+            "waxingcrescent": "Wax",
+            "firstquarter": "1st",
+            "waxinggibbous": "Wax",
+            "fullmoon": "Full",
+            "waninggibbous": "Wane",
+            "lastquarter": "Last",
+            "waningcrescent": "Wane",
+        }
+        return labels.get(self.moon_phase_name(target_date), "Moon")
+
+    def moon_phase_name(self, target_date):
+        try:
+            if isinstance(target_date, datetime):
+                date_obj = target_date.date()
+            else:
+                date_obj = target_date
+            known_new_moon = datetime(2000, 1, 6).date()
+            days = (date_obj - known_new_moon).days
+            phase = (days % 29.530588853) / 29.530588853
+            if phase < 0.03 or phase > 0.97:
+                return "newmoon"
+            if phase < 0.22:
+                return "waxingcrescent"
+            if phase < 0.28:
+                return "firstquarter"
+            if phase < 0.47:
+                return "waxinggibbous"
+            if phase < 0.53:
+                return "fullmoon"
+            if phase < 0.72:
+                return "waninggibbous"
+            if phase < 0.78:
+                return "lastquarter"
+            return "waningcrescent"
+        except Exception:
+            return "newmoon"
+
+    def parse_openmeteo_data_points(self, weather_data, settings):
+        current = weather_data.get("current", {})
+        daily = weather_data.get("daily", {})
+        points = []
+        points.append(self._metric_point("Wind", self._round(current.get("wind_speed_10m")), "mph" if settings.get("units") == "imperial" else "km/h", "wind", self.get_wind_arrow(current.get("wind_direction_10m", 0))))
+        points.append(self._metric_point("Humidity", self._round(current.get("relative_humidity_2m")), "%", "humidity"))
+        if current.get("surface_pressure") is not None:
+            points.append(self._metric_point("Pressure", self._round(current.get("surface_pressure")), "hPa", "pressure"))
+        if daily.get("sunrise"):
+            points.insert(0, self._metric_point("Sunrise", self._format_iso_time(daily.get("sunrise")[0], settings.get("timeFormat", "12h")), "", "sunrise"))
+        if daily.get("sunset"):
+            points.insert(1, self._metric_point("Sunset", self._format_iso_time(daily.get("sunset")[0], settings.get("timeFormat", "12h")), "", "sunset"))
+        points.append(self._metric_point("Precip", self._format_precip(current.get("precipitation", 0)), "in" if settings.get("units") == "imperial" else "mm", "humidity"))
+        return points[:6]
+
+    def parse_openweathermap_data_points(self, weather_data, settings, timezone_name):
+        current = weather_data.get("current", {})
+        tz = ZoneInfo(timezone_name) if ZoneInfo and _is_valid_timezone(timezone_name) else timezone.utc
+        points = []
+        if current.get("sunrise"):
+            points.append(self._metric_point("Sunrise", self.format_dt(datetime.fromtimestamp(current.get("sunrise"), tz=timezone.utc).astimezone(tz), settings.get("timeFormat", "12h")), "", "sunrise"))
+        if current.get("sunset"):
+            points.append(self._metric_point("Sunset", self.format_dt(datetime.fromtimestamp(current.get("sunset"), tz=timezone.utc).astimezone(tz), settings.get("timeFormat", "12h")), "", "sunset"))
+        points.append(self._metric_point("Wind", self._round(current.get("wind_speed")), "mph" if settings.get("units") == "imperial" else "m/s", "wind", self.get_wind_arrow(current.get("wind_deg", 0))))
+        points.append(self._metric_point("Humidity", self._round(current.get("humidity")), "%", "humidity"))
+        if current.get("pressure") is not None:
+            points.append(self._metric_point("Pressure", self._round(current.get("pressure")), "hPa", "pressure"))
+        if current.get("uvi") is not None:
+            points.append(self._metric_point("UV Index", self._round(current.get("uvi")), "", "uvi"))
+        if current.get("visibility") is not None:
+            visibility = current.get("visibility")
+            if settings.get("units") == "imperial":
+                visibility = visibility / 1609.344
+                unit = "mi"
+            else:
+                visibility = visibility / 1000
+                unit = "km"
+            points.append(self._metric_point("Visibility", f"{visibility:.1f}", unit, "visibility"))
+        return points[:6]
+
+    def _metric_point(self, label, measurement, unit, icon_name, arrow=""):
+        return {"label": label, "measurement": measurement, "unit": unit, "icon_path": self.icon_path(icon_name), "arrow": arrow}
+
+    def _format_iso_time(self, value, time_format):
+        try:
+            return self.format_dt(datetime.fromisoformat(value), time_format)
+        except Exception:
+            return "—"
 
     def _weather_description(self, block):
         try:
@@ -560,6 +823,8 @@ class WeatherAladhan(BasePlugin):
         gregorian = date_data.get("gregorian", {})
         prayer_rows = []
         for key in PRAYER_KEYS:
+            if key == "Sunrise" and not _to_bool(settings.get("showSunrisePrayer"), True):
+                continue
             value = timings.get(key)
             if not value:
                 continue

@@ -2,13 +2,22 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
 <div class="form-group">
-    <label for="locationName">Location name / title</label>
+    <label for="customTitle">Custom title</label>
+    <input type="text" id="customTitle" name="customTitle" placeholder="Weather + Prayer Times">
+</div>
+
+<div class="form-group">
+    <label for="locationName">Location name</label>
     <input type="text" id="locationName" name="locationName" placeholder="Panama City, FL">
 </div>
 
 <div class="form-group">
-    <label for="customTitle">Dashboard title</label>
-    <input type="text" id="customTitle" name="customTitle" placeholder="Weather + Prayer Times">
+    <label>Title display</label>
+    <div class="radio-group">
+        <label><input type="radio" name="titleSelection" value="custom"> Custom title</label>
+        <label><input type="radio" name="titleSelection" value="location"> Location</label>
+        <label><input type="radio" name="titleSelection" value="both"> Location + custom</label>
+    </div>
 </div>
 
 <div class="form-group">
@@ -21,13 +30,21 @@
         <button type="button" id="openCombinedMap" class="action-button compact">Select on map</button>
         <button type="button" id="useBrowserLocation" class="action-button compact">Use browser location</button>
     </div>
-    <small>Pick your exact location for both weather and prayer-time calculations. The map starts at the selected timezone location when possible.</small>
+    <small>Pick the exact location for weather and prayer-time calculations.</small>
 </div>
 
 <div class="form-group">
-    <label for="timezonestring">Timezone</label>
+    <label for="timezonestring">Prayer/time display timezone</label>
     <input type="text" id="timezonestring" name="timezonestring" placeholder="America/Chicago">
-    <small>Defaults to the Pi/InkyPi timezone. Leave blank to use the Pi timezone, or enter an IANA timezone such as America/Chicago.</small>
+    <small>Leave blank to use the Pi/InkyPi timezone. Enter an IANA timezone to override it.</small>
+</div>
+
+<div class="form-group">
+    <label>Weather timezone</label>
+    <div class="radio-group">
+        <label><input type="radio" name="weatherTimeZone" value="localTimeZone"> Use Pi/manual timezone</label>
+        <label><input type="radio" name="weatherTimeZone" value="locationTimeZone"> Use location timezone when provider supports it</label>
+    </div>
 </div>
 
 <div class="form-group">
@@ -59,9 +76,9 @@
 <div class="form-group">
     <label for="forecastDays">Forecast days</label>
     <select id="forecastDays" name="forecastDays">
-        <option value="3">3 days</option>
+        <option value="3">3 days - best fit</option>
         <option value="5">5 days</option>
-        <option value="7">7 days</option>
+        <option value="7">7 days - tight</option>
     </select>
 </div>
 
@@ -71,6 +88,32 @@
         <option value="12h">12 hour</option>
         <option value="24h">24 hour</option>
     </select>
+</div>
+
+<div class="form-group">
+    <label for="layoutDensity">Layout density</label>
+    <select id="layoutDensity" name="layoutDensity">
+        <option value="compact">Compact - safest fit</option>
+        <option value="balanced">Balanced - default</option>
+        <option value="detailed">Detailed - more weather info</option>
+    </select>
+    <small class="form-help density-help">
+        Compact keeps the screen tight and prioritizes current weather, forecast, next prayer, and prayer times.
+        Balanced is the recommended default and shows optional items, like metrics, graph, and moon phase, when enabled.
+        Detailed gives the weather side more breathing room for optional metrics and the mini graph; use it when the display has enough space.
+    </small>
+</div>
+
+<div class="form-group">
+    <label>Weather display</label>
+    <div class="checkbox-grid">
+        <label><input type="checkbox" id="displayRefreshTime" name="displayRefreshTime" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Refresh time</label>
+        <label><input type="checkbox" id="showWeatherDetails" name="showWeatherDetails" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Metrics</label>
+        <label><input type="checkbox" id="showWeatherGraph" name="showWeatherGraph" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Mini weather graph</label>
+        <label><input type="checkbox" id="showWeatherForecast" name="showWeatherForecast" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Forecast</label>
+        <label><input type="checkbox" id="showRainAmount" name="showRainAmount" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Rain / precipitation chance</label>
+        <label><input type="checkbox" id="showMoonPhase" name="showMoonPhase" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Moon phase in forecast</label>
+    </div>
 </div>
 
 <hr class="settings-divider">
@@ -135,15 +178,14 @@
     <small>Minutes in this order: Imsak,Fajr,Sunrise,Dhuhr,Asr,Maghrib,Sunset,Isha,Midnight.</small>
 </div>
 
-<hr class="settings-divider">
-
 <div class="form-group">
-    <label>Show / hide</label>
+    <label>Prayer display</label>
     <div class="checkbox-grid">
-        <label><input type="checkbox" id="showWeatherForecast" name="showWeatherForecast" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Weather forecast</label>
-        <label><input type="checkbox" id="showWeatherDetails" name="showWeatherDetails" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Weather details</label>
         <label><input type="checkbox" id="showNextPrayer" name="showNextPrayer" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Next prayer card</label>
         <label><input type="checkbox" id="showHijri" name="showHijri" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Hijri date</label>
+        <label><input type="checkbox" id="showGregorian" name="showGregorian" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Gregorian date</label>
+        <label><input type="checkbox" id="showPrayerMethod" name="showPrayerMethod" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Calculation method</label>
+        <label><input type="checkbox" id="showSunrisePrayer" name="showSunrisePrayer" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Sunrise row</label>
     </div>
 </div>
 
@@ -175,13 +217,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const defaults = {
         locationName: '',
         customTitle: 'Weather + Prayer Times',
+        titleSelection: 'custom',
         latitude: '',
         longitude: '',
         timezonestring: '{{ device_timezone | default("") }}',
+        weatherTimeZone: 'localTimeZone',
         dailyRefreshTime: '00:05',
         units: 'imperial',
         forecastDays: '3',
         timeFormat: '12h',
+        layoutDensity: 'balanced',
         method: '2',
         school: '0',
         latitudeAdjustmentMethod: '3',
@@ -191,14 +236,26 @@ document.addEventListener('DOMContentLoaded', () => {
         methodSettings: '',
         tune: '',
         weatherProvider: 'OpenMeteo',
+        displayRefreshTime: 'true',
         showWeatherForecast: 'true',
-        showWeatherDetails: 'false',
+        showWeatherDetails: 'true',
+        showWeatherGraph: 'false',
+        showRainAmount: 'true',
+        showMoonPhase: 'false',
         showNextPrayer: 'true',
-        showHijri: 'true'
+        showHijri: 'true',
+        showGregorian: 'true',
+        showPrayerMethod: 'true',
+        showSunrisePrayer: 'true'
     };
     const values = (typeof loadPluginSettings !== 'undefined' && loadPluginSettings) ? {...defaults, ...pluginSettings} : defaults;
 
     Object.entries(values).forEach(([key, value]) => {
+        const radio = document.querySelector(`input[type="radio"][name="${key}"][value="${value}"]`);
+        if (radio) {
+            radio.checked = true;
+            return;
+        }
         const el = document.getElementById(key);
         if (!el) return;
         if (el.type === 'checkbox') {
@@ -301,7 +358,6 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleWeatherProviderHelp();
 
     document.getElementById('useBrowserLocation').addEventListener('click', () => {
-        const status = document.getElementById('combinedMapStatus');
         if (!navigator.geolocation) {
             alert('Browser location is not available. Please use the map or enter coordinates manually.');
             return;
