@@ -56,8 +56,9 @@ class Apod(BasePlugin):
         "day-month",
     }
 
-    OVERLAY_SIZES = {"small", "medium", "large", "x-large"}
+    OVERLAY_SIZES = {"x-small", "small", "medium", "large", "x-large"}
     SIZE_FACTORS = {
+        "x-small": 0.7,
         "small": 0.85,
         "medium": 1.0,
         "large": 1.2,
