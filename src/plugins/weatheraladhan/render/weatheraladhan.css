@@ -1,269 +1,336 @@
 html, body {
-    margin: 0;
-    width: 100%;
-    height: 100%;
-    font-family: Arial, Helvetica, sans-serif;
-    color: #000;
-    background: #fff;
-    overflow: hidden;
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  color: #000;
+  background: #fff;
+  overflow: hidden;
+  font-family: Arial, Helvetica, sans-serif;
 }
 * { box-sizing: border-box; }
-.dashboard {
-    width: 100dvw;
-    height: 100dvh;
-    padding: 2.8dvh 3dvw;
-    display: flex;
-    flex-direction: column;
-    gap: 2dvh;
-    overflow: hidden;
+.combined-dashboard {
+  width: 100dvw;
+  height: 100dvh;
+  padding: 2.2dvh 2.2dvw;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5dvh;
+  overflow: hidden;
 }
-.topbar {
-    flex: 0 0 auto;
-    min-height: 0;
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 2dvw;
-    border-bottom: 0.32dvh solid #000;
-    padding-bottom: 1.2dvh;
+.combined-header {
+  flex: 0 0 auto;
+  min-height: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1.6dvw;
+  padding-bottom: 1dvh;
+  border-bottom: 0.28dvh solid #000;
 }
-h1 {
-    margin: 0;
-    font-size: clamp(24px, 4.6dvw, 54px);
-    line-height: 0.98;
-    font-weight: 900;
-    letter-spacing: -0.03em;
+.dashboard-title {
+  font-size: clamp(24px, 4.2dvw, 44px);
+  line-height: 0.95;
+  font-weight: 900;
+  letter-spacing: -0.035em;
+  white-space: nowrap;
 }
-.meta-line {
-    margin-top: 0.5dvh;
-    font-size: clamp(11px, 1.8dvw, 20px);
-    font-weight: 700;
-    white-space: nowrap;
+.dashboard-subtitle {
+  margin-top: 0.45dvh;
+  font-size: clamp(10px, 1.55dvw, 16px);
+  line-height: 1;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 58dvw;
 }
-.dot { padding: 0 0.6dvw; }
-.refresh-box {
-    text-align: right;
-    border: 0.22dvh solid #000;
-    border-radius: 1dvh;
-    padding: 0.8dvh 1dvw;
-    min-width: 18dvw;
-    font-size: clamp(9px, 1.4dvw, 16px);
-    line-height: 1.15;
+.separator { padding: 0 0.6dvw; }
+.header-right {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15dvh;
+  font-size: clamp(8px, 1.15dvw, 12px);
+  line-height: 1.15;
+  font-weight: 700;
+  padding-top: 0.25dvh;
+  white-space: nowrap;
 }
-.refresh-box b, .refresh-box span { display: block; }
-.main-grid {
-    flex: 1 1 auto;
-    min-height: 0;
-    display: grid;
-    grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
-    gap: 2dvw;
-    overflow: hidden;
+.dashboard-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: 1.6dvw;
+  overflow: hidden;
 }
-.panel {
-    min-height: 0;
-    border: 0.36dvh solid #000;
-    border-radius: 1.6dvh;
-    padding: 1.8dvh 1.8dvw;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
+.weather-card, .prayer-card {
+  min-width: 0;
+  min-height: 0;
+  border: 0.28dvh solid #000;
+  border-radius: 1.2dvh;
+  padding: 1.2dvh 1.15dvw;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
-.panel-title {
-    flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    gap: 0.9dvw;
-    font-size: clamp(18px, 3dvw, 34px);
-    font-weight: 900;
-    line-height: 1;
-    margin-bottom: 1.3dvh;
-    border-bottom: 0.18dvh solid #000;
-    padding-bottom: 0.9dvh;
+.section-heading {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.6dvw;
+  font-size: clamp(16px, 2.45dvw, 26px);
+  line-height: 1;
+  font-weight: 900;
+  padding-bottom: 0.65dvh;
+  margin-bottom: 0.9dvh;
+  border-bottom: 0.18dvh solid #000;
 }
-.title-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.35em;
-    height: 1.35em;
-    border: 0.14em solid #000;
-    border-radius: 50%;
-    font-size: 0.8em;
-    line-height: 1;
+.section-heading small {
+  margin-left: auto;
+  font-size: clamp(7px, 0.95dvw, 10px);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 900;
 }
-.panel-title small {
-    margin-left: auto;
-    font-size: clamp(8px, 1.2dvw, 14px);
-    font-weight: 700;
-    opacity: 0.8;
+.section-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.45em;
+  height: 1.45em;
+  border: 0.15em solid #000;
+  border-radius: 999px;
+  font-size: 0.72em;
+  line-height: 1;
 }
-.weather-now {
-    flex: 0 0 auto;
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 1.6dvw;
-    align-items: center;
-    margin-bottom: 1.4dvh;
+.weather-current {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1fr);
+  gap: 1dvw;
+  align-items: center;
+  min-height: 0;
+  margin-bottom: 0.9dvh;
+}
+.weather-large-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 13.5dvh;
+  font-size: clamp(48px, 9dvw, 92px);
+  line-height: 1;
+  filter: saturate(1.15);
+}
+.weather-temp-block { min-width: 0; text-align: left; }
+.weather-date {
+  font-size: clamp(9px, 1.25dvw, 13px);
+  line-height: 1;
+  font-weight: 700;
+  margin-bottom: 0.25dvh;
+  white-space: nowrap;
 }
 .big-temp {
-    font-size: clamp(48px, 9.5dvw, 104px);
-    font-weight: 900;
-    line-height: 0.82;
-    letter-spacing: -0.08em;
+  font-size: clamp(48px, 8dvw, 84px);
+  line-height: 0.85;
+  font-weight: 400;
+  letter-spacing: -0.08em;
+  white-space: nowrap;
 }
 .big-temp sup {
-    font-size: 0.25em;
-    vertical-align: super;
-    letter-spacing: 0;
-    margin-left: 0.2dvw;
+  font-size: 0.26em;
+  vertical-align: super;
+  margin-left: 0.2dvw;
+  letter-spacing: 0;
 }
-.weather-summary b {
-    display: block;
-    font-size: clamp(15px, 2.35dvw, 28px);
-    line-height: 1.05;
+.feels-line, .summary-line {
+  font-size: clamp(10px, 1.45dvw, 15px);
+  line-height: 1.15;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.weather-summary span {
-    display: block;
-    margin-top: 0.5dvh;
-    font-size: clamp(11px, 1.6dvw, 19px);
-    font-weight: 700;
+.summary-line { font-weight: 900; margin-top: 0.25dvh; }
+.weather-mini-metrics {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65dvw;
+  margin-bottom: 1dvh;
 }
-.metric-strip {
-    flex: 0 0 auto;
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.8dvw;
-    margin-bottom: 1.2dvh;
+.weather-mini-metrics div {
+  min-width: 0;
+  border: 0.16dvh solid #000;
+  border-radius: 0.8dvh;
+  padding: 0.55dvh 0.45dvw;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 0.35dvw;
+  align-items: center;
+  overflow: hidden;
 }
-.metric-strip div {
-    border: 0.18dvh solid #000;
-    border-radius: 0.8dvh;
-    padding: 0.7dvh 0.6dvw;
-    text-align: center;
-    overflow: hidden;
+.metric-icon {
+  grid-row: span 2;
+  font-size: clamp(14px, 2dvw, 20px);
+  line-height: 1;
 }
-.metric-strip b {
-    display: block;
-    font-size: clamp(11px, 1.7dvw, 20px);
-    line-height: 1.05;
+.weather-mini-metrics b {
+  font-size: clamp(12px, 1.75dvw, 18px);
+  line-height: 1;
+  font-weight: 900;
+  white-space: nowrap;
 }
-.metric-strip span {
-    display: block;
-    font-size: clamp(8px, 1.15dvw, 13px);
-    font-weight: 700;
+.weather-mini-metrics small {
+  font-size: clamp(7px, 0.95dvw, 10px);
+  line-height: 1.05;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.forecast-grid {
-    flex: 1 1 auto;
-    min-height: 0;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
-    gap: 0.7dvw;
-    align-items: stretch;
+.forecast-row {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75dvw;
+  align-items: stretch;
+  overflow: hidden;
 }
-.forecast-day {
-    min-width: 0;
-    border: 0.18dvh solid #000;
-    border-radius: 0.8dvh;
-    padding: 0.8dvh 0.5dvw;
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 0.25dvh;
-    overflow: hidden;
+.forecast-row.more-days { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }
+.forecast-card {
+  min-width: 0;
+  border: 0.18dvh solid #000;
+  border-radius: 1dvh;
+  padding: 0.55dvh 0.4dvw;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.18dvh;
+  overflow: hidden;
+}
+.forecast-card b {
+  font-size: clamp(12px, 1.75dvw, 18px);
+  line-height: 1;
+  font-weight: 900;
 }
 .forecast-icon {
-    font-size: clamp(15px, 2.3dvw, 26px);
-    line-height: 1;
+  font-size: clamp(20px, 3.2dvw, 34px);
+  line-height: 1;
 }
-.forecast-day b {
-    font-size: clamp(10px, 1.55dvw, 18px);
-    line-height: 1;
+.forecast-card span {
+  font-size: clamp(9px, 1.25dvw, 13px);
+  line-height: 1;
+  font-weight: 900;
+  white-space: nowrap;
 }
-.forecast-day span {
-    font-size: clamp(9px, 1.35dvw, 16px);
-    font-weight: 900;
-    line-height: 1;
+.forecast-card small {
+  font-size: clamp(7px, 0.95dvw, 10px);
+  line-height: 1;
+  font-weight: 700;
 }
-.forecast-day small {
-    font-size: clamp(8px, 1.05dvw, 12px);
-    font-weight: 700;
-    line-height: 1;
+.prayer-card { padding-left: 1dvw; padding-right: 1dvw; }
+.prayer-heading { justify-content: center; }
+.prayer-date-block {
+  flex: 0 0 auto;
+  text-align: center;
+  font-size: clamp(10px, 1.35dvw, 14px);
+  line-height: 1.15;
+  font-weight: 700;
+  margin: -0.25dvh 0 0.8dvh;
+  min-height: 2.4dvh;
 }
-.many-days .forecast-day { padding-left: 0.2dvw; padding-right: 0.2dvw; }
-.hijri-date {
-    flex: 0 0 auto;
-    font-size: clamp(11px, 1.75dvw, 20px);
-    line-height: 1.15;
-    font-weight: 700;
-    margin: -0.4dvh 0 1.1dvh;
+.next-prayer-card {
+  flex: 0 0 auto;
+  text-align: center;
+  border: 0.22dvh solid #000;
+  border-radius: 1dvh;
+  padding: 0.75dvh 0.7dvw;
+  margin-bottom: 0.8dvh;
 }
-.next-card {
-    flex: 0 0 auto;
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    align-items: center;
-    gap: 0.8dvw;
-    border: 0.26dvh solid #000;
-    border-radius: 1dvh;
-    padding: 0.9dvh 0.9dvw;
-    margin-bottom: 0.9dvh;
-    background: #000;
-    color: #fff;
+.next-label {
+  font-size: clamp(8px, 1.05dvw, 11px);
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 700;
 }
-.next-card span {
-    font-size: clamp(8px, 1.15dvw, 13px);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-weight: 900;
+.next-name {
+  font-size: clamp(26px, 4.4dvw, 44px);
+  line-height: 0.95;
+  font-weight: 900;
+  margin-top: 0.15dvh;
 }
-.next-card b, .next-card strong {
-    font-size: clamp(13px, 2.15dvw, 25px);
-    line-height: 1;
+.next-time {
+  font-size: clamp(18px, 2.9dvw, 30px);
+  line-height: 1;
+  font-weight: 900;
+  margin-top: 0.25dvh;
 }
-.prayer-grid {
-    flex: 1 1 auto;
-    min-height: 0;
-    display: grid;
-    grid-template-rows: repeat(6, minmax(0, 1fr));
-    gap: 0.55dvh;
+.prayer-times-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  gap: 0.55dvh 0.55dvw;
+  overflow: hidden;
 }
-.prayer-row {
-    min-height: 0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1dvw;
-    border-bottom: 0.16dvh solid #000;
-    padding: 0 0.2dvw;
-    font-size: clamp(13px, 2.1dvw, 24px);
-    line-height: 1;
+.prayer-time-cell {
+  min-width: 0;
+  min-height: 0;
+  border: 0.16dvh solid #000;
+  border-radius: 0.85dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35dvh 0.3dvw;
+  overflow: hidden;
 }
-.prayer-row span { font-weight: 700; }
-.prayer-row b { font-weight: 900; white-space: nowrap; }
-.prayer-row.current {
-    border: 0.2dvh solid #000;
-    border-radius: 0.7dvh;
-    padding: 0 0.6dvw;
-    background: #f2f2f2;
+.prayer-time-cell span {
+  font-size: clamp(10px, 1.4dvw, 14px);
+  line-height: 1;
+  font-weight: 900;
+  white-space: nowrap;
 }
-.method-line {
-    flex: 0 0 auto;
-    margin-top: 0.8dvh;
-    font-size: clamp(7px, 1.05dvw, 12px);
-    line-height: 1.15;
-    opacity: 0.75;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+.prayer-time-cell b {
+  font-size: clamp(14px, 2.1dvw, 22px);
+  line-height: 1;
+  font-weight: 900;
+  margin-top: 0.35dvh;
+  white-space: nowrap;
+}
+.prayer-time-cell.active {
+  border-width: 0.28dvh;
+  background: #f2f2f2;
+}
+.prayer-method {
+  flex: 0 0 auto;
+  margin-top: 0.65dvh;
+  text-align: center;
+  font-size: clamp(7px, 0.95dvw, 10px);
+  line-height: 1.05;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 @media (orientation: portrait) {
-    .dashboard { padding: 2.2dvh 3dvw; gap: 1.2dvh; }
-    .topbar { padding-bottom: 0.8dvh; }
-    .main-grid { grid-template-columns: 1fr; grid-template-rows: minmax(0, 0.92fr) minmax(0, 1.08fr); gap: 1.2dvh; }
-    .panel { padding: 1.2dvh 2.2dvw; }
-    .panel-title { margin-bottom: 0.8dvh; padding-bottom: 0.6dvh; }
-    .weather-now { margin-bottom: 0.8dvh; }
-    .metric-strip { margin-bottom: 0.8dvh; }
-    .forecast-day small { display: none; }
+  .combined-dashboard { padding: 1.8dvh 2.8dvw; gap: 1dvh; }
+  .combined-header { align-items: flex-start; padding-bottom: 0.75dvh; }
+  .dashboard-title { font-size: clamp(22px, 6.5dvw, 40px); }
+  .dashboard-subtitle { max-width: 56dvw; }
+  .dashboard-grid { grid-template-columns: 1fr; grid-template-rows: minmax(0, 0.92fr) minmax(0, 1.08fr); gap: 1dvh; }
+  .weather-card, .prayer-card { padding: 1dvh 2dvw; }
+  .section-heading { margin-bottom: 0.6dvh; padding-bottom: 0.5dvh; }
+  .weather-current { grid-template-columns: 0.78fr 1fr; margin-bottom: 0.6dvh; }
+  .weather-large-icon { height: 8dvh; }
+  .weather-mini-metrics { display: none; }
+  .forecast-card small { display: none; }
+  .next-prayer-card { padding: 0.55dvh 0.7dvw; margin-bottom: 0.55dvh; }
+  .prayer-method { display: none; }
 }

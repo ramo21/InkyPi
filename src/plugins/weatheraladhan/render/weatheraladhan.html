@@ -1,79 +1,100 @@
-<!doctype html>
-<html>
-<head>
-    <meta charset="utf-8">
-</head>
-<body>
-<div class="dashboard">
-    <header class="topbar">
+{% extends "plugin.html" %}
+{% block content %}
+<div class="combined-dashboard">
+  <header class="combined-header">
+    <div class="header-left">
+      <div class="dashboard-title">{{ title }}</div>
+      <div class="dashboard-subtitle">
+        {% if location_label %}<span>{{ location_label }}</span>{% endif %}
+        {% if location_label and timezone_name %}<span class="separator">•</span>{% endif %}
+        {% if timezone_name %}<span>{{ timezone_name }}</span>{% endif %}
+      </div>
+    </div>
+    <div class="header-right">
+      <span>Last refresh: <b>{{ last_refresh_time }}</b></span>
+      <span>Daily target: <b>{{ daily_refresh_label }}</b></span>
+    </div>
+  </header>
+
+  <main class="dashboard-grid">
+    <section class="weather-card">
+      <div class="section-heading">
+        <span class="section-icon weather-heading-icon">{{ weather.icon }}</span>
+        <span>Weather</span>
+        <small>{{ weather_provider_label }}</small>
+      </div>
+
+      <div class="weather-current">
+        <div class="weather-large-icon" aria-hidden="true">{{ weather.icon }}</div>
+        <div class="weather-temp-block">
+          <div class="weather-date">{{ weather.today_label }}</div>
+          <div class="big-temp">{{ weather.temperature }}<sup>{{ weather.temperature_unit }}</sup></div>
+          <div class="feels-line">Feels Like {{ weather.feels_like }}°</div>
+          <div class="summary-line">{{ weather.summary }}</div>
+        </div>
+      </div>
+
+      {% if show_weather_details %}
+      <div class="weather-mini-metrics">
         <div>
-            <h1>{{ title }}</h1>
-            <div class="meta-line">
-                {% if location_label %}<span>{{ location_label }}</span>{% endif %}
-                {% if location_label and timezone_name %}<span class="dot">•</span>{% endif %}
-                {% if timezone_name %}<span>{{ timezone_name }}</span>{% endif %}
-            </div>
+          <span class="metric-icon">↗</span>
+          <b>{{ weather.wind_speed }}</b><small>{{ weather.wind_unit }} {{ weather.wind_direction }}</small>
         </div>
-        <div class="refresh-box">
-            <b>{{ last_refresh_time }}</b>
-            <span>Daily {{ daily_refresh_label }}</span>
+        <div>
+          <span class="metric-icon">💧</span>
+          <b>{{ weather.humidity }}%</b><small>Humidity</small>
         </div>
-    </header>
+        <div>
+          <span class="metric-icon">☔</span>
+          <b>{{ weather.precipitation }}</b><small>{{ weather.rain_unit }} precip</small>
+        </div>
+      </div>
+      {% endif %}
 
-    <main class="main-grid">
-        <section class="panel weather-panel">
-            <div class="panel-title"><span class="title-icon">{{ weather.icon }}</span><span>Weather</span><small>{{ weather_provider_label }}</small></div>
-            <div class="weather-now">
-                <div class="big-temp">{{ weather.temperature }}<sup>{{ weather.temperature_unit }}</sup></div>
-                <div class="weather-summary">
-                    <b>{{ weather.summary }}</b>
-                    <span>Feels {{ weather.feels_like }}{{ weather.temperature_unit }}</span>
-                </div>
-            </div>
+      {% if show_weather_forecast %}
+      <div class="forecast-row {% if weather.forecast|length > 3 %}more-days{% endif %}">
+        {% for day in weather.forecast %}
+        <div class="forecast-card">
+          <b>{{ day.day }}</b>
+          <div class="forecast-icon">{{ day.icon }}</div>
+          <span>{{ day.high }}° / {{ day.low }}°</span>
+          <small>{{ day.precip }}%</small>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </section>
 
-            {% if show_weather_details %}
-            <div class="metric-strip">
-                <div><b>{{ weather.humidity }}%</b><span>Humidity</span></div>
-                <div><b>{{ weather.wind_speed }} {{ weather.wind_unit }}</b><span>Wind {{ weather.wind_direction }}</span></div>
-                <div><b>{{ weather.precipitation }} {{ weather.rain_unit }}</b><span>Precip</span></div>
-            </div>
-            {% endif %}
+    <section class="prayer-card">
+      <div class="section-heading prayer-heading">
+        <span class="section-icon">☾</span>
+        <span>Prayer Times</span>
+      </div>
 
-            {% if show_weather_forecast %}
-            <div class="forecast-grid {% if weather.forecast|length > 5 %}many-days{% endif %}">
-                {% for day in weather.forecast %}
-                <div class="forecast-day">
-                    <div class="forecast-icon">{{ day.icon }}</div>
-                    <b>{{ day.day }}</b>
-                    <span>{{ day.high }}°/{{ day.low }}°</span>
-                    <small>{{ day.precip }}%</small>
-                </div>
-                {% endfor %}
-            </div>
-            {% endif %}
-        </section>
+      <div class="prayer-date-block">
+        {% if show_hijri and prayers.hijri_date %}<div>{{ prayers.hijri_date }}</div>{% endif %}
+        {% if prayers.gregorian_date %}<div>{{ prayers.gregorian_date }}</div>{% endif %}
+      </div>
 
-        <section class="panel prayer-panel">
-            <div class="panel-title"><span class="title-icon">☾</span><span>Prayer Times</span></div>
-            {% if show_hijri and prayers.hijri_date %}<div class="hijri-date">{{ prayers.hijri_date }}</div>{% endif %}
-            {% if show_next_prayer and prayers.next_prayer %}
-            <div class="next-card">
-                <span>Next</span>
-                <b>{{ prayers.next_prayer.name }}</b>
-                <strong>{{ prayers.next_prayer.time }}</strong>
-            </div>
-            {% endif %}
-            <div class="prayer-grid">
-                {% for prayer in prayers.rows %}
-                <div class="prayer-row {% if prayers.current_prayer == prayer.name %}current{% endif %}">
-                    <span>{{ prayer.name }}</span>
-                    <b>{{ prayer.time }}</b>
-                </div>
-                {% endfor %}
-            </div>
-            <div class="method-line">{{ method_name }}</div>
-        </section>
-    </main>
+      {% if show_next_prayer and prayers.next_prayer %}
+      <div class="next-prayer-card">
+        <div class="next-label">Next Prayer</div>
+        <div class="next-name">{{ prayers.next_prayer.name }}</div>
+        <div class="next-time">{{ prayers.next_prayer.time }}</div>
+      </div>
+      {% endif %}
+
+      <div class="prayer-times-grid">
+        {% for prayer in prayers.rows %}
+        <div class="prayer-time-cell {% if prayers.current_prayer == prayer.name %}active{% endif %}">
+          <span>{{ prayer.name }}</span>
+          <b>{{ prayer.time }}</b>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="prayer-method">{{ method_name }}</div>
+    </section>
+  </main>
 </div>
-</body>
-</html>
+{% endblock %}

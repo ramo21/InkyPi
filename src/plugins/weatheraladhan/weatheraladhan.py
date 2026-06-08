@@ -413,6 +413,7 @@ class WeatherAladhan(BasePlugin):
             })
         return {
             "provider_label": "Open-Meteo",
+            "today_label": self._format_weather_today_label((daily.get("time") or [None])[0]),
             "temperature": self._round(current.get("temperature_2m")),
             "feels_like": self._round(current.get("apparent_temperature")),
             "humidity": self._round(current.get("relative_humidity_2m")),
@@ -456,6 +457,7 @@ class WeatherAladhan(BasePlugin):
         precipitation = self._openweather_precip(current, units)
         return {
             "provider_label": "OpenWeatherMap",
+            "today_label": self._format_weather_today_label_from_timestamp((daily[0] or {}).get("dt") if daily else None, timezone_name),
             "temperature": self._round(current.get("temp")),
             "feels_like": self._round(current.get("feels_like")),
             "humidity": self._round(current.get("humidity")),
@@ -532,6 +534,23 @@ class WeatherAladhan(BasePlugin):
         if weather_id == 800:
             return "☼"
         return "☁"
+
+    def _format_weather_today_label(self, value):
+        try:
+            if value:
+                return datetime.fromisoformat(str(value)).strftime("%A, %b %d")
+        except Exception:
+            pass
+        return datetime.today().strftime("%A, %b %d")
+
+    def _format_weather_today_label_from_timestamp(self, timestamp, timezone_name):
+        try:
+            if timestamp:
+                tz = ZoneInfo(timezone_name) if ZoneInfo and _is_valid_timezone(timezone_name) else timezone.utc
+                return datetime.fromtimestamp(int(timestamp), tz=timezone.utc).astimezone(tz).strftime("%A, %b %d")
+        except Exception:
+            pass
+        return datetime.today().strftime("%A, %b %d")
 
     def parse_prayers(self, prayer_data, now, time_format, settings):
         data = prayer_data.get("data", {})
