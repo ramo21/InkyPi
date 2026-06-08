@@ -23,6 +23,17 @@ logger = logging.getLogger(__name__)
 class Apod(BasePlugin):
     """NASA Astronomy Picture of the Day plugin."""
 
+    APOD_ENDPOINT = "https://api.nasa.gov/planetary/apod"
+    RANDOM_RETRY_COUNT = 3
+    RANDOM_START_DATE = datetime(2015, 1, 1)
+    KNOWN_GOOD_IMAGE_DATES = [
+        # NASA APOD title: "The ISS Meets Venus". This is the verified
+        # April 11, 2025 ISS/Venus conjunction image requested as a fallback.
+        ("2025-04-11", "The ISS Meets Venus"),
+        ("2026-06-05", "The Hydra Cluster of Galaxies"),
+        ("2022-02-06", "Blue Marble Earth"),
+    ]
+
     OVERLAY_POSITIONS = {
         "top-left",
         "top-center",
@@ -63,44 +74,6 @@ class Apod(BasePlugin):
             logger.error("NASA API Key not configured")
             raise RuntimeError("NASA API Key not configured.")
 
-        params = {"api_key": api_key}
-
-        # Determine date to fetch.
-        if settings.get("randomizeApod") == "true":
-            start = datetime(2015, 1, 1)
-            end = datetime.today()
-            delta_days = (end - start).days
-            random_date = start + timedelta(days=randint(0, delta_days))
-            params["date"] = random_date.strftime("%Y-%m-%d")
-            logger.info("Fetching random APOD from date: %s", params["date"])
-        elif settings.get("customDate"):
-            params["date"] = settings["customDate"]
-            logger.info("Fetching APOD from custom date: %s", params["date"])
-        else:
-            logger.info("Fetching today's APOD")
-
-        logger.debug("Requesting NASA APOD API...")
-        session = get_http_session()
-        response = session.get("https://api.nasa.gov/planetary/apod", params=params)
-
-        if response.status_code != 200:
-            logger.error("NASA API error (status %s): %s", response.status_code, response.text)
-            raise RuntimeError("Failed to retrieve NASA APOD.")
-
-        data = response.json()
-        logger.debug("APOD API response received: %s", data.get("title", "No title"))
-
-        if data.get("media_type") != "image":
-            logger.warning("APOD media type is '%s', not 'image'", data.get("media_type"))
-            raise RuntimeError("APOD is not an image today.")
-
-        image_url = data.get("hdurl") or data.get("url")
-        if not image_url:
-            raise RuntimeError("APOD response did not include an image URL.")
-
-        logger.info("APOD image URL: %s", image_url)
-        logger.debug("Using %s", "HD URL" if data.get("hdurl") else "standard URL")
-
         dimensions = device_config.get_resolution()
         if device_config.get_config("orientation") == "vertical":
             dimensions = dimensions[::-1]
@@ -110,16 +83,152 @@ class Apod(BasePlugin):
                 dimensions[1],
             )
 
-        # Use adaptive image loader for memory-efficient processing.
-        image = self.image_loader.from_url(image_url, dimensions, timeout_ms=40000)
-        if not image:
-            logger.error("Failed to load APOD image")
-            raise RuntimeError("Failed to load APOD image.")
-
+        session = get_http_session()
+        data, image = self._fetch_apod_image_with_retries(settings, session, api_key, dimensions)
         image = self._add_metadata_overlays(image, data, settings)
 
         logger.info("=== APOD Plugin: Image generation complete ===")
         return image
+
+    def _fetch_apod_image_with_retries(self, settings, session, api_key, dimensions):
+        """Fetch APOD metadata and image, retrying/falling back when needed.
+
+        Random mode tries three random dates first. If those fail because NASA
+        returns an error, a non-image/video APOD, a missing URL, or the image
+        cannot be loaded, the plugin falls back to today, yesterday, and then
+        known-good APOD image dates. Custom date and normal today mode also use
+        the fallback list so the display does not go blank after an APOD/API
+        issue.
+        """
+        attempts = self._build_apod_attempt_plan(settings)
+        failures = []
+
+        for attempt in attempts:
+            date_value = attempt.get("date")
+            label = attempt["label"]
+            logger.info("Fetching APOD: %s%s", label, f" ({date_value})" if date_value else "")
+
+            try:
+                data, image = self._try_fetch_apod_image(
+                    session=session,
+                    api_key=api_key,
+                    dimensions=dimensions,
+                    date_value=date_value,
+                )
+                logger.info(
+                    "Using APOD '%s' from %s via %s",
+                    data.get("title", "Untitled"),
+                    data.get("date", date_value or "today"),
+                    label,
+                )
+                return data, image
+            except Exception as exc:  # noqa: BLE001 - keep display alive after API/image failures.
+                message = f"{label}{f' ({date_value})' if date_value else ''}: {exc}"
+                failures.append(message)
+                logger.warning("APOD attempt failed: %s", message)
+
+        logger.error("All APOD attempts failed: %s", " | ".join(failures))
+        raise RuntimeError("Failed to retrieve a usable NASA APOD image after retries and fallbacks.")
+
+    def _build_apod_attempt_plan(self, settings):
+        """Return ordered APOD attempts for current settings."""
+        attempts = []
+        seen_dates = set()
+
+        def add_attempt(label, date_value=None):
+            key = date_value or "__today_without_date__"
+            if key in seen_dates:
+                return
+            seen_dates.add(key)
+            attempts.append({"label": label, "date": date_value})
+
+        if settings.get("randomizeApod") == "true":
+            for index, date_value in enumerate(self._random_apod_dates(), start=1):
+                add_attempt(f"random attempt {index}/{self.RANDOM_RETRY_COUNT}", date_value)
+        elif settings.get("customDate"):
+            add_attempt("custom date", settings["customDate"])
+        else:
+            add_attempt("today")
+
+        for date_value, label in self._fallback_apod_dates():
+            add_attempt(label, date_value)
+
+        return attempts
+
+    def _random_apod_dates(self):
+        """Return unique random APOD dates to try before fallbacks."""
+        start = self.RANDOM_START_DATE
+        end = datetime.today()
+        delta_days = max(0, (end - start).days)
+
+        dates = []
+        seen = set()
+        guard = 0
+        while len(dates) < self.RANDOM_RETRY_COUNT and guard < self.RANDOM_RETRY_COUNT * 20:
+            guard += 1
+            date_value = (start + timedelta(days=randint(0, delta_days))).strftime("%Y-%m-%d")
+            if date_value in seen:
+                continue
+            seen.add(date_value)
+            dates.append(date_value)
+
+        return dates
+
+    def _fallback_apod_dates(self):
+        """Return today, yesterday, then verified known-good APOD image dates."""
+        today = datetime.today()
+        fallback_dates = [
+            (today.strftime("%Y-%m-%d"), "current date fallback"),
+            ((today - timedelta(days=1)).strftime("%Y-%m-%d"), "yesterday fallback"),
+        ]
+
+        # Do not request a future known-good date if the device clock is earlier
+        # than that date. This keeps the fallback plan safe if reused before
+        # June 5, 2026.
+        today_date = today.date()
+        for date_value, title in self.KNOWN_GOOD_IMAGE_DATES:
+            try:
+                parsed = datetime.strptime(date_value, "%Y-%m-%d").date()
+            except ValueError:
+                logger.warning("Skipping invalid known-good APOD fallback date: %s", date_value)
+                continue
+            if parsed <= today_date:
+                fallback_dates.append((date_value, f"known-good fallback: {title}"))
+
+        return fallback_dates
+
+    def _try_fetch_apod_image(self, session, api_key, dimensions, date_value=None):
+        """Fetch one APOD date and load its image or raise a useful error."""
+        params = {"api_key": api_key}
+        if date_value:
+            params["date"] = date_value
+
+        logger.debug("Requesting NASA APOD API with params: %s", {**params, "api_key": "***"})
+        response = session.get(self.APOD_ENDPOINT, params=params)
+
+        if response.status_code != 200:
+            response_text = getattr(response, "text", "")
+            raise RuntimeError(f"NASA API status {response.status_code}: {response_text[:240]}")
+
+        data = response.json()
+        logger.debug("APOD API response received: %s", data.get("title", "No title"))
+
+        if data.get("media_type") != "image":
+            raise RuntimeError(f"APOD media type is '{data.get('media_type')}', not 'image'")
+
+        image_url = data.get("hdurl") or data.get("url")
+        if not image_url:
+            raise RuntimeError("APOD response did not include an image URL")
+
+        logger.info("APOD image URL: %s", image_url)
+        logger.debug("Using %s", "HD URL" if data.get("hdurl") else "standard URL")
+
+        # Use adaptive image loader for memory-efficient processing.
+        image = self.image_loader.from_url(image_url, dimensions, timeout_ms=40000)
+        if not image:
+            raise RuntimeError("Failed to load APOD image")
+
+        return data, image
 
     def _add_metadata_overlays(self, image, data, settings):
         """Return image with enabled APOD metadata overlays."""
