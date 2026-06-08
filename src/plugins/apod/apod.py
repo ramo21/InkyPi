@@ -56,6 +56,14 @@ class Apod(BasePlugin):
         "day-month",
     }
 
+    OVERLAY_SIZES = {"small", "medium", "large", "x-large"}
+    SIZE_FACTORS = {
+        "small": 0.85,
+        "medium": 1.0,
+        "large": 1.2,
+        "x-large": 1.4,
+    }
+
     def generate_settings_template(self):
         template_params = super().generate_settings_template()
         template_params["api_key"] = {
@@ -232,34 +240,20 @@ class Apod(BasePlugin):
 
     def _add_metadata_overlays(self, image, data, settings):
         """Return image with enabled APOD metadata overlays."""
-        overlays = []
+        title_text = ""
+        date_text = ""
+        title_position = self._normalize_title_position(settings.get("apodTitlePosition", "bottom-left"))
+        date_position = self._normalize_date_position(settings.get("apodDatePosition", "bottom-right"))
+        title_size = self._normalize_overlay_size(settings.get("apodTitleSize", "medium"))
+        date_size = self._normalize_overlay_size(settings.get("apodDateSize", "medium"))
 
-        title_text = self._normalize_apod_title(data.get("title"))
-        if settings.get("showApodTitle", "false") == "true" and title_text:
-            overlays.append(
-                {
-                    "text": title_text,
-                    "position": self._normalize_title_position(
-                        settings.get("apodTitlePosition", "bottom-left")
-                    ),
-                    "kind": "title",
-                }
-            )
+        if settings.get("showApodTitle", "false") == "true":
+            title_text = self._normalize_apod_title(data.get("title"))
 
         if settings.get("showApodDate", "true") != "false":
             date_text = self._format_apod_date(data.get("date"), settings.get("apodDateFormat", "long"))
-            if date_text:
-                overlays.append(
-                    {
-                        "text": date_text,
-                        "position": self._normalize_date_position(
-                            settings.get("apodDatePosition", "bottom-right")
-                        ),
-                        "kind": "date",
-                    }
-                )
 
-        if not overlays:
+        if not title_text and not date_text:
             return image
 
         original_mode = image.mode
@@ -267,35 +261,79 @@ class Apod(BasePlugin):
         draw = ImageDraw.Draw(canvas, "RGBA")
         occupied_boxes = []
 
-        for overlay in overlays:
+        combine_same_line = (
+            settings.get("combineTitleDateSingleLine", "false") == "true"
+            and title_text
+            and date_text
+            and title_position == date_position
+        )
+
+        if combine_same_line:
             occupied_boxes.append(
-                self._draw_overlay_label(
+                self._draw_combined_overlay_label(
                     draw,
                     canvas.size,
-                    overlay["text"],
-                    overlay["position"],
-                    overlay["kind"],
+                    title_text,
+                    date_text,
+                    title_position,
+                    title_size,
+                    date_size,
                     occupied_boxes,
                 )
             )
+        else:
+            overlays = []
+            if title_text:
+                overlays.append(
+                    {
+                        "text": title_text,
+                        "position": title_position,
+                        "kind": "title",
+                        "size": title_size,
+                    }
+                )
+            if date_text:
+                overlays.append(
+                    {
+                        "text": date_text,
+                        "position": date_position,
+                        "kind": "date",
+                        "size": date_size,
+                    }
+                )
+
+            for overlay in overlays:
+                occupied_boxes.append(
+                    self._draw_overlay_label(
+                        draw,
+                        canvas.size,
+                        overlay["text"],
+                        overlay["position"],
+                        overlay["kind"],
+                        occupied_boxes,
+                        overlay.get("size", "medium"),
+                    )
+                )
 
         if original_mode in ("1", "L", "RGB"):
             return canvas.convert(original_mode)
         return canvas
 
-    def _draw_overlay_label(self, draw, canvas_size, text, position, kind, occupied_boxes):
+    def _draw_overlay_label(self, draw, canvas_size, text, position, kind, occupied_boxes, size_key="medium"):
         """Draw one translucent metadata label and return its bounding box."""
         width, height = canvas_size
         min_dim = min(width, height)
 
         if kind == "title":
-            font_size = max(15, min(46, int(min_dim / 16)))
+            base_font_size = max(15, min(46, int(min_dim / 16)))
             max_width = int(width * 0.74)
             max_lines = 2
         else:
-            font_size = max(14, min(42, int(min_dim / 18)))
+            base_font_size = max(14, min(42, int(min_dim / 18)))
             max_width = int(width * 0.58)
             max_lines = 1
+
+        font_size = self._scale_font_size(base_font_size, size_key)
 
         font = self._load_overlay_font(font_size)
         lines = self._wrap_overlay_text(draw, text, font, max_width, max_lines)
@@ -359,6 +397,93 @@ class Apod(BasePlugin):
                 fill=(255, 255, 255, 255),
             )
             cursor_y += line_height + line_spacing
+
+        return (x, y, x + label_width, y + label_height)
+
+    def _draw_combined_overlay_label(
+        self,
+        draw,
+        canvas_size,
+        title_text,
+        date_text,
+        position,
+        title_size_key,
+        date_size_key,
+        occupied_boxes,
+    ):
+        """Draw a single-line title + date label when both share one location."""
+        width, height = canvas_size
+        min_dim = min(width, height)
+        margin = max(8, int(min_dim * 0.035))
+
+        title_font = self._load_overlay_font(
+            self._scale_font_size(max(15, min(46, int(min_dim / 16))), title_size_key)
+        )
+        date_font = self._load_overlay_font(
+            self._scale_font_size(max(14, min(42, int(min_dim / 18))), date_size_key)
+        )
+
+        separator = "  —  "
+        max_width = int(width * 0.84)
+
+        date_text = self._normalize_apod_title(date_text)
+        title_text = self._normalize_apod_title(title_text)
+        if not title_text and not date_text:
+            return (0, 0, 0, 0)
+        if not title_text:
+            return self._draw_overlay_label(draw, canvas_size, date_text, position, "date", occupied_boxes, date_size_key)
+        if not date_text:
+            return self._draw_overlay_label(draw, canvas_size, title_text, position, "title", occupied_boxes, title_size_key)
+
+        date_width = self._text_width(draw, date_text, date_font)
+        sep_width = self._text_width(draw, separator, title_font)
+        available_title_width = max(40, max_width - date_width - sep_width)
+        title_text = self._truncate_to_width(draw, title_text, title_font, available_title_width)
+
+        title_bbox = draw.textbbox((0, 0), title_text, font=title_font)
+        sep_bbox = draw.textbbox((0, 0), separator, font=title_font)
+        date_bbox = draw.textbbox((0, 0), date_text, font=date_font)
+
+        title_width = title_bbox[2] - title_bbox[0]
+        sep_width = sep_bbox[2] - sep_bbox[0]
+        date_width = date_bbox[2] - date_bbox[0]
+        text_width = title_width + sep_width + date_width
+        text_height = max(title_bbox[3] - title_bbox[1], date_bbox[3] - date_bbox[1])
+
+        pad_x = max(8, int(max(title_font.size, date_font.size) * 0.55))
+        pad_y = max(5, int(max(title_font.size, date_font.size) * 0.35))
+        label_width = text_width + (pad_x * 2)
+        label_height = text_height + (pad_y * 2)
+
+        x, y = self._position_box(position, width, height, label_width, label_height, margin)
+        x, y = self._avoid_overlay_collisions(
+            x, y, label_width, label_height, position, width, height, margin, occupied_boxes
+        )
+        radius = max(4, int(label_height * 0.22))
+
+        draw.rounded_rectangle(
+            [x, y, x + label_width, y + label_height],
+            radius=radius,
+            fill=(0, 0, 0, 172),
+            outline=(255, 255, 255, 130),
+            width=max(1, int(max(title_font.size, date_font.size) / 14)),
+        )
+
+        if position.endswith("left"):
+            cursor_x = x + pad_x
+        elif position.endswith("right"):
+            cursor_x = x + label_width - pad_x - text_width
+        else:
+            cursor_x = x + (label_width - text_width) // 2
+
+        title_y = y + pad_y - title_bbox[1] + (text_height - (title_bbox[3] - title_bbox[1])) // 2
+        date_y = y + pad_y - date_bbox[1] + (text_height - (date_bbox[3] - date_bbox[1])) // 2
+
+        draw.text((cursor_x, title_y), title_text, font=title_font, fill=(255, 255, 255, 255))
+        cursor_x += title_width
+        draw.text((cursor_x, title_y), separator, font=title_font, fill=(255, 255, 255, 220))
+        cursor_x += sep_width
+        draw.text((cursor_x, date_y), date_text, font=date_font, fill=(255, 255, 255, 255))
 
         return (x, y, x + label_width, y + label_height)
 
@@ -473,6 +598,17 @@ class Apod(BasePlugin):
             logger.warning("Invalid APOD title position '%s'; using bottom-left", value)
             return "bottom-left"
         return position
+
+    def _normalize_overlay_size(self, value):
+        size_key = (value or "medium").strip().lower()
+        if size_key not in self.OVERLAY_SIZES:
+            logger.warning("Invalid APOD overlay size '%s'; using medium", value)
+            return "medium"
+        return size_key
+
+    def _scale_font_size(self, base_size, size_key):
+        factor = self.SIZE_FACTORS.get(self._normalize_overlay_size(size_key), 1.0)
+        return max(10, int(round(base_size * factor)))
 
     def _format_apod_date(self, value, date_format):
         if not value:

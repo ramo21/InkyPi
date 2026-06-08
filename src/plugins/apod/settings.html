@@ -50,6 +50,16 @@
     </select>
 </div>
 
+<div class="form-group apod-date-control">
+    <label for="apodDateSize" class="form-label">Image date size</label>
+    <select id="apodDateSize" name="apodDateSize" class="form-input">
+        <option value="small">Small</option>
+        <option value="medium">Medium (default)</option>
+        <option value="large">Large</option>
+        <option value="x-large">Extra large</option>
+    </select>
+</div>
+
 <hr class="settings-divider">
 
 <div class="form-group">
@@ -75,7 +85,27 @@
         <option value="top-center">Top center</option>
         <option value="top-right">Top right</option>
     </select>
-    <small class="form-help">If title and date use the same area, the plugin stacks them so they do not fully cover each other.</small>
+    <small class="form-help">If title and date use the same area, the plugin stacks them by default so they do not fully cover each other.</small>
+</div>
+
+<div class="form-group apod-title-control">
+    <label for="apodTitleSize" class="form-label">Image title size</label>
+    <select id="apodTitleSize" name="apodTitleSize" class="form-input">
+        <option value="small">Small</option>
+        <option value="medium">Medium (default)</option>
+        <option value="large">Large</option>
+        <option value="x-large">Extra large</option>
+    </select>
+</div>
+
+<div class="form-group apod-title-control">
+    <label for="combineTitleDateSingleLine" class="form-label">If title and date share the same location, put them on one line</label>
+    <div class="toggle-container">
+        <input type="checkbox" id="combineTitleDateSingleLine" name="combineTitleDateSingleLine" class="toggle-checkbox" value="false"
+            onclick="this.value = this.checked ? 'true' : 'false';">
+        <label for="combineTitleDateSingleLine" class="toggle-label"></label>
+    </div>
+    <small class="form-help">When enabled and both overlays use the same location, the plugin renders "Title — Date" on a single line instead of stacking them.</small>
 </div>
 
 <script>
@@ -109,6 +139,9 @@
         const $dateFormat = document.getElementById('apodDateFormat');
         const $showTitle = document.getElementById('showApodTitle');
         const $titlePosition = document.getElementById('apodTitlePosition');
+        const $dateSize = document.getElementById('apodDateSize');
+        const $titleSize = document.getElementById('apodTitleSize');
+        const $combineSameLine = document.getElementById('combineTitleDateSingleLine');
         const today = new Date().toISOString().split('T')[0];
 
         if (hasSavedSettings) {
@@ -121,10 +154,14 @@
             $showDate.value = $showDate.checked ? 'true' : 'false';
             $datePosition.value = savedSettings.apodDatePosition || 'bottom-right';
             $dateFormat.value = savedSettings.apodDateFormat || 'long';
+            $dateSize.value = savedSettings.apodDateSize || 'medium';
 
             $showTitle.checked = savedSettings.showApodTitle === 'true';
             $showTitle.value = $showTitle.checked ? 'true' : 'false';
             $titlePosition.value = savedSettings.apodTitlePosition || 'bottom-left';
+            $titleSize.value = savedSettings.apodTitleSize || 'medium';
+            $combineSameLine.checked = savedSettings.combineTitleDateSingleLine === 'true';
+            $combineSameLine.value = $combineSameLine.checked ? 'true' : 'false';
         } else {
             $toggle.checked = false;
             $toggle.value = 'false';
@@ -134,10 +171,14 @@
             $showDate.value = 'true';
             $datePosition.value = 'bottom-right';
             $dateFormat.value = 'long';
+            $dateSize.value = 'medium';
 
             $showTitle.checked = false;
             $showTitle.value = 'false';
             $titlePosition.value = 'bottom-left';
+            $titleSize.value = 'medium';
+            $combineSameLine.checked = false;
+            $combineSameLine.value = 'false';
         }
 
         toggleApodDateControls();
