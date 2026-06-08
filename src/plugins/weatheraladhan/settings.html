@@ -1,0 +1,294 @@
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+<div class="form-group">
+    <label for="locationName">Location name / title</label>
+    <input type="text" id="locationName" name="locationName" placeholder="Panama City, FL">
+</div>
+
+<div class="form-group">
+    <label for="customTitle">Dashboard title</label>
+    <input type="text" id="customTitle" name="customTitle" placeholder="Weather + Prayer Times">
+</div>
+
+<div class="form-group">
+    <label>Location</label>
+    <div class="form-row">
+        <input type="number" step="any" id="latitude" name="latitude" placeholder="Latitude" min="-90" max="90" required>
+        <input type="number" step="any" id="longitude" name="longitude" placeholder="Longitude" min="-180" max="180" required>
+    </div>
+    <div class="form-row" style="margin-top: 8px; gap: 8px; align-items: center;">
+        <button type="button" id="openCombinedMap" class="action-button compact">Select on map</button>
+        <button type="button" id="useBrowserLocation" class="action-button compact">Use browser location</button>
+    </div>
+    <small>Pick your exact location for both weather and prayer-time calculations. The map starts at the selected timezone location when possible.</small>
+</div>
+
+<div class="form-group">
+    <label for="timezonestring">Timezone</label>
+    <input type="text" id="timezonestring" name="timezonestring" placeholder="America/Chicago">
+    <small>Defaults to the Pi/InkyPi timezone. Leave blank to use the Pi timezone, or enter an IANA timezone such as America/Chicago.</small>
+</div>
+
+<div class="form-group">
+    <label for="dailyRefreshTime">Daily refresh time</label>
+    <input type="time" id="dailyRefreshTime" name="dailyRefreshTime" value="00:05" step="60" required>
+    <small>Default: 12:05 AM. Use the same time when setting the InkyPi playlist refresh schedule.</small>
+</div>
+
+<hr class="settings-divider">
+
+<div class="form-group">
+    <label for="units">Weather units</label>
+    <select id="units" name="units">
+        <option value="imperial">Imperial (°F, mph, inches)</option>
+        <option value="metric">Metric (°C, km/h, mm)</option>
+    </select>
+</div>
+
+<div class="form-group">
+    <label for="forecastDays">Forecast days</label>
+    <select id="forecastDays" name="forecastDays">
+        <option value="3">3 days</option>
+        <option value="5">5 days</option>
+        <option value="7">7 days</option>
+    </select>
+</div>
+
+<div class="form-group">
+    <label for="timeFormat">Time format</label>
+    <select id="timeFormat" name="timeFormat">
+        <option value="12h">12 hour</option>
+        <option value="24h">24 hour</option>
+    </select>
+</div>
+
+<hr class="settings-divider">
+
+<div class="form-group">
+    <label for="method">Prayer calculation method</label>
+    <select id="method" name="method">
+        {% for method in methods %}
+        <option value="{{ method.id }}">{{ method.name }}</option>
+        {% endfor %}
+    </select>
+</div>
+
+<div class="form-group">
+    <label for="school">Asr juristic school</label>
+    <select id="school" name="school">
+        <option value="0">Shafi / Maliki / Hanbali</option>
+        <option value="1">Hanafi</option>
+    </select>
+</div>
+
+<div class="form-group">
+    <label for="latitudeAdjustmentMethod">High-latitude adjustment</label>
+    <select id="latitudeAdjustmentMethod" name="latitudeAdjustmentMethod">
+        <option value="1">Middle of the night</option>
+        <option value="2">One seventh</option>
+        <option value="3">Angle based</option>
+    </select>
+</div>
+
+<div class="form-group">
+    <label for="midnightMode">Midnight mode</label>
+    <select id="midnightMode" name="midnightMode">
+        <option value="0">Standard</option>
+        <option value="1">Jafari</option>
+    </select>
+</div>
+
+<div class="form-group">
+    <label for="shafaq">Shafaq</label>
+    <select id="shafaq" name="shafaq">
+        <option value="general">General</option>
+        <option value="ahmer">Ahmer</option>
+        <option value="abyad">Abyad</option>
+    </select>
+</div>
+
+<div class="form-group">
+    <label for="adjustment">Hijri date adjustment</label>
+    <input type="number" id="adjustment" name="adjustment" value="0" min="-3" max="3">
+</div>
+
+<div class="form-group">
+    <label for="methodSettings">Custom method settings</label>
+    <input type="text" id="methodSettings" name="methodSettings" placeholder="18.5,null,17.5">
+    <small>Only used with Custom angles. Format: FajrAngle,MaghribAngleOrMinutes,IshaAngleOrMinutes.</small>
+</div>
+
+<div class="form-group">
+    <label for="tune">Fine tune prayer times</label>
+    <input type="text" id="tune" name="tune" placeholder="0,0,0,0,0,0,0,0,0">
+    <small>Minutes in this order: Imsak,Fajr,Sunrise,Dhuhr,Asr,Maghrib,Sunset,Isha,Midnight.</small>
+</div>
+
+<hr class="settings-divider">
+
+<div class="form-group">
+    <label>Show / hide</label>
+    <div class="checkbox-grid">
+        <label><input type="checkbox" id="showWeatherForecast" name="showWeatherForecast" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Weather forecast</label>
+        <label><input type="checkbox" id="showWeatherDetails" name="showWeatherDetails" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Weather details</label>
+        <label><input type="checkbox" id="showNextPrayer" name="showNextPrayer" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Next prayer card</label>
+        <label><input type="checkbox" id="showHijri" name="showHijri" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Hijri date</label>
+    </div>
+</div>
+
+<div id="combinedMapModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="close-button" id="closeCombinedMapX">×</span>
+        <h2>Select Location</h2>
+        <div class="separator"></div>
+        <div id="combinedMapStatus" style="font-size: 0.9rem; margin-bottom: 8px;"></div>
+        <div id="combinedMap" style="width: 100%; height: 320px; margin: 10px 0;"></div>
+        <div class="form-row" style="gap: 8px; align-items: center;">
+            <button type="button" id="saveCombinedMap" class="action-button">Save location</button>
+            <button type="button" id="cancelCombinedMap" class="action-button compact">Cancel</button>
+        </div>
+        <small>Click the map or drag the marker. Latitude and longitude are saved into the fields above.</small>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const defaults = {
+        locationName: '',
+        customTitle: 'Weather + Prayer Times',
+        latitude: '',
+        longitude: '',
+        timezonestring: '{{ device_timezone | default("") }}',
+        dailyRefreshTime: '00:05',
+        units: 'imperial',
+        forecastDays: '3',
+        timeFormat: '12h',
+        method: '2',
+        school: '0',
+        latitudeAdjustmentMethod: '3',
+        midnightMode: '0',
+        shafaq: 'general',
+        adjustment: '0',
+        methodSettings: '',
+        tune: '',
+        showWeatherForecast: 'true',
+        showWeatherDetails: 'true',
+        showNextPrayer: 'true',
+        showHijri: 'true'
+    };
+    const values = (typeof loadPluginSettings !== 'undefined' && loadPluginSettings) ? {...defaults, ...pluginSettings} : defaults;
+
+    Object.entries(values).forEach(([key, value]) => {
+        const el = document.getElementById(key);
+        if (!el) return;
+        if (el.type === 'checkbox') {
+            const checked = value === true || value === 'true';
+            el.checked = checked;
+            el.value = checked ? 'true' : 'false';
+        } else {
+            el.value = value || '';
+        }
+    });
+
+    const TIMEZONE_CENTERS = {
+        'America/Chicago': [41.8781, -87.6298],
+        'America/New_York': [40.7128, -74.0060],
+        'America/Denver': [39.7392, -104.9903],
+        'America/Los_Angeles': [34.0522, -118.2437],
+        'America/Phoenix': [33.4484, -112.0740],
+        'America/Anchorage': [61.2181, -149.9003],
+        'Pacific/Honolulu': [21.3069, -157.8583],
+        'Europe/London': [51.5072, -0.1276],
+        'Europe/Paris': [48.8566, 2.3522],
+        'Europe/Istanbul': [41.0082, 28.9784],
+        'Asia/Riyadh': [24.7136, 46.6753],
+        'Asia/Dubai': [25.2048, 55.2708],
+        'Asia/Karachi': [24.8607, 67.0011],
+        'Asia/Jakarta': [-6.2088, 106.8456],
+        'Asia/Kuala_Lumpur': [3.1390, 101.6869],
+        'Australia/Sydney': [-33.8688, 151.2093],
+        'Etc/UTC': [21.4225, 39.8262]
+    };
+    const MAKKAH = [21.4225, 39.8262];
+    let map = null;
+    let marker = null;
+    let pendingLatLng = null;
+
+    function parseCoordinate(value) {
+        const parsed = Number.parseFloat(value);
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+    function getInitialCenter() {
+        const tz = (document.getElementById('timezonestring').value || Intl.DateTimeFormat().resolvedOptions().timeZone || '').trim();
+        if (tz && TIMEZONE_CENTERS[tz]) return TIMEZONE_CENTERS[tz];
+        const lat = parseCoordinate(document.getElementById('latitude').value);
+        const lng = parseCoordinate(document.getElementById('longitude').value);
+        if (lat !== null && lng !== null) return [lat, lng];
+        return MAKKAH;
+    }
+    function openMap() {
+        const modal = document.getElementById('combinedMapModal');
+        modal.style.display = 'block';
+        const center = getInitialCenter();
+        pendingLatLng = {lat: center[0], lng: center[1]};
+        setTimeout(() => {
+            if (!map) {
+                map = L.map('combinedMap').setView(center, 8);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '&copy; OpenStreetMap contributors'
+                }).addTo(map);
+                marker = L.marker(center, {draggable: true}).addTo(map);
+                map.on('click', (event) => setMarker(event.latlng.lat, event.latlng.lng));
+                marker.on('dragend', () => {
+                    const pos = marker.getLatLng();
+                    setMarker(pos.lat, pos.lng);
+                });
+            } else {
+                map.setView(center, 8);
+                marker.setLatLng(center);
+            }
+            map.invalidateSize();
+            updateStatus();
+        }, 100);
+    }
+    function setMarker(lat, lng) {
+        pendingLatLng = {lat, lng};
+        if (marker) marker.setLatLng([lat, lng]);
+        updateStatus();
+    }
+    function updateStatus() {
+        const status = document.getElementById('combinedMapStatus');
+        if (!pendingLatLng) {
+            status.textContent = '';
+            return;
+        }
+        status.textContent = `Selected: ${pendingLatLng.lat.toFixed(5)}, ${pendingLatLng.lng.toFixed(5)}`;
+    }
+    function closeMap() {
+        document.getElementById('combinedMapModal').style.display = 'none';
+    }
+    document.getElementById('openCombinedMap').addEventListener('click', openMap);
+    document.getElementById('closeCombinedMapX').addEventListener('click', closeMap);
+    document.getElementById('cancelCombinedMap').addEventListener('click', closeMap);
+    document.getElementById('saveCombinedMap').addEventListener('click', () => {
+        if (pendingLatLng) {
+            document.getElementById('latitude').value = pendingLatLng.lat.toFixed(6);
+            document.getElementById('longitude').value = pendingLatLng.lng.toFixed(6);
+        }
+        closeMap();
+    });
+    document.getElementById('useBrowserLocation').addEventListener('click', () => {
+        const status = document.getElementById('combinedMapStatus');
+        if (!navigator.geolocation) {
+            alert('Browser location is not available. Please use the map or enter coordinates manually.');
+            return;
+        }
+        navigator.geolocation.getCurrentPosition((position) => {
+            document.getElementById('latitude').value = position.coords.latitude.toFixed(6);
+            document.getElementById('longitude').value = position.coords.longitude.toFixed(6);
+        }, () => alert('Could not get browser location. Please use the map or enter coordinates manually.'));
+    });
+});
+</script>

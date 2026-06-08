@@ -1,0 +1,69 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+</head>
+<body>
+<div class="dashboard">
+    <header class="header">
+        <div>
+            <h1>{{ title }}</h1>
+            {% if location_label %}<div class="location">{{ location_label }}</div>{% endif %}
+        </div>
+        <div class="updated">Updated {{ last_refresh_time }}<br>Daily target {{ daily_refresh_label }}</div>
+    </header>
+
+    <main class="grid">
+        <section class="weather-panel card">
+            <div class="section-title">Weather</div>
+            <div class="weather-current">
+                <div class="temperature">{{ weather.temperature }}<span>{{ weather.temperature_unit }}</span></div>
+                <div class="summary">
+                    <strong>{{ weather.summary }}</strong>
+                    <span>Feels like {{ weather.feels_like }}{{ weather.temperature_unit }}</span>
+                </div>
+            </div>
+            {% if show_weather_details %}
+            <div class="weather-details">
+                <div><b>{{ weather.humidity }}%</b><span>Humidity</span></div>
+                <div><b>{{ weather.wind_speed }} {{ weather.wind_unit }}</b><span>Wind {{ weather.wind_direction }}</span></div>
+                <div><b>{{ weather.precipitation }} {{ weather.rain_unit }}</b><span>Now precip</span></div>
+            </div>
+            {% endif %}
+            {% if show_weather_forecast %}
+            <div class="forecast">
+                {% for day in weather.forecast %}
+                <div class="forecast-day">
+                    <div class="day">{{ day.day }}</div>
+                    <div class="temps">{{ day.high }}° / {{ day.low }}°</div>
+                    <div class="rain">{{ day.precip }}% rain</div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </section>
+
+        <section class="prayer-panel card">
+            <div class="section-title">Prayer Times</div>
+            {% if show_hijri and prayers.hijri_date %}<div class="hijri">{{ prayers.hijri_date }}</div>{% endif %}
+            {% if show_next_prayer and prayers.next_prayer %}
+            <div class="next-prayer">
+                <span>Next</span>
+                <strong>{{ prayers.next_prayer.name }}</strong>
+                <b>{{ prayers.next_prayer.time }}</b>
+            </div>
+            {% endif %}
+            <div class="prayer-list">
+                {% for prayer in prayers.rows %}
+                <div class="prayer-row {% if prayers.current_prayer == prayer.name %}current{% endif %}">
+                    <span>{{ prayer.name }}</span>
+                    <b>{{ prayer.time }}</b>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="method">{{ method_name }}</div>
+        </section>
+    </main>
+</div>
+</body>
+</html>

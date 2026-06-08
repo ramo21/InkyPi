@@ -245,8 +245,8 @@ class Apod(BasePlugin):
         date_text = ""
         title_position = self._normalize_title_position(settings.get("apodTitlePosition", "bottom-left"))
         date_position = self._normalize_date_position(settings.get("apodDatePosition", "bottom-right"))
-        title_size = self._normalize_overlay_size(settings.get("apodTitleSize", "medium"))
-        date_size = self._normalize_overlay_size(settings.get("apodDateSize", "medium"))
+        title_size = self._normalize_overlay_size(settings.get("apodTitleSize", "x-small"))
+        date_size = self._normalize_overlay_size(settings.get("apodDateSize", "x-small"))
 
         if settings.get("showApodTitle", "false") == "true":
             title_text = self._normalize_apod_title(data.get("title"))

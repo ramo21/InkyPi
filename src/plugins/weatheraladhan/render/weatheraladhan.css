@@ -1,0 +1,176 @@
+html, body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #151515;
+    background: #f7f3e8;
+}
+.dashboard {
+    box-sizing: border-box;
+    width: 100dvw;
+    height: 100dvh;
+    padding: 4dvh 4dvw;
+    display: flex;
+    flex-direction: column;
+    gap: 3dvh;
+}
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 0.25dvh solid #222;
+    padding-bottom: 1.4dvh;
+}
+h1 {
+    margin: 0;
+    font-size: clamp(28px, 5.6dvw, 64px);
+    line-height: 1;
+}
+.location {
+    margin-top: 0.7dvh;
+    font-size: clamp(14px, 2.1dvw, 28px);
+    font-weight: 700;
+}
+.updated {
+    text-align: right;
+    font-size: clamp(10px, 1.55dvw, 20px);
+    line-height: 1.25;
+}
+.grid {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3dvw;
+}
+.card {
+    border: 0.32dvh solid #222;
+    border-radius: 2.2dvh;
+    padding: 2.4dvh 2.4dvw;
+    background: rgba(255,255,255,0.42);
+    box-sizing: border-box;
+    overflow: hidden;
+}
+.section-title {
+    font-size: clamp(20px, 3.2dvw, 40px);
+    font-weight: 900;
+    margin-bottom: 1.5dvh;
+}
+.weather-current {
+    display: flex;
+    align-items: center;
+    gap: 2dvw;
+    margin-bottom: 2dvh;
+}
+.temperature {
+    font-size: clamp(52px, 12dvw, 116px);
+    font-weight: 900;
+    line-height: 0.9;
+}
+.temperature span {
+    font-size: 0.33em;
+    vertical-align: top;
+    margin-left: 0.2dvw;
+}
+.summary strong {
+    display: block;
+    font-size: clamp(18px, 3dvw, 34px);
+    line-height: 1.05;
+}
+.summary span {
+    display: block;
+    margin-top: 0.7dvh;
+    font-size: clamp(13px, 2dvw, 24px);
+}
+.weather-details {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1dvw;
+    margin: 1.5dvh 0 2dvh;
+}
+.weather-details div {
+    border-top: 0.18dvh solid #222;
+    padding-top: 0.8dvh;
+}
+.weather-details b {
+    display: block;
+    font-size: clamp(15px, 2.3dvw, 28px);
+}
+.weather-details span {
+    display: block;
+    font-size: clamp(10px, 1.45dvw, 18px);
+}
+.forecast {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1dvw;
+}
+.forecast-day {
+    padding: 1dvh 0.8dvw;
+    border: 0.18dvh solid #222;
+    border-radius: 1dvh;
+    text-align: center;
+}
+.forecast-day .day {
+    font-weight: 900;
+    font-size: clamp(13px, 2dvw, 22px);
+}
+.temps {
+    font-size: clamp(13px, 1.8dvw, 22px);
+    font-weight: 700;
+}
+.rain {
+    font-size: clamp(10px, 1.4dvw, 17px);
+}
+.hijri {
+    font-size: clamp(13px, 2.1dvw, 26px);
+    font-weight: 700;
+    margin-top: -0.8dvh;
+    margin-bottom: 1.5dvh;
+}
+.next-prayer {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 1dvw;
+    align-items: center;
+    background: #222;
+    color: #fff;
+    border-radius: 1.3dvh;
+    padding: 1.1dvh 1.1dvw;
+    margin-bottom: 1.4dvh;
+}
+.next-prayer span {
+    font-size: clamp(10px, 1.4dvw, 18px);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.next-prayer strong, .next-prayer b {
+    font-size: clamp(16px, 2.7dvw, 34px);
+}
+.prayer-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7dvh;
+}
+.prayer-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 0.16dvh solid #999;
+    padding: 0.55dvh 0;
+    font-size: clamp(16px, 2.55dvw, 32px);
+}
+.prayer-row.current {
+    font-weight: 900;
+    border-bottom: 0.3dvh solid #222;
+}
+.method {
+    margin-top: 1.2dvh;
+    font-size: clamp(9px, 1.3dvw, 16px);
+    opacity: 0.75;
+}
+@media (orientation: portrait) {
+    .grid { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+    .forecast { grid-template-columns: repeat(3, 1fr); }
+}
