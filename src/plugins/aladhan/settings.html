@@ -27,7 +27,7 @@
 <div class="form-group">
     <label for="timezonestring">Timezone</label>
     <input type="text" id="timezonestring" name="timezonestring" placeholder="America/Chicago">
-    <small>Leave blank to use the InkyPi device timezone. Use an IANA timezone such as America/Chicago.</small>
+    <small>Defaults to the Pi/InkyPi timezone. Use an IANA timezone such as America/Chicago. You may override it manually if needed.</small>
 </div>
 
 <div class="form-group">
@@ -175,10 +175,10 @@ document.addEventListener('DOMContentLoaded', () => {
         customTitle: 'Prayer Times',
         latitude: '',
         longitude: '',
-        timezonestring: '',
+        timezonestring: '{{ device_timezone | default("Etc/UTC") }}',
         dailyRefreshTime: '00:05',
         displayMode: 'today',
-        method: '3',
+        method: '2',
         school: '0',
         latitudeAdjustmentMethod: '3',
         midnightMode: '0',
@@ -201,6 +201,9 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const values = (typeof loadPluginSettings !== 'undefined' && loadPluginSettings) ? {...defaults, ...pluginSettings} : defaults;
+    if (!String(values.timezonestring || '').trim()) {
+        values.timezonestring = defaults.timezonestring || 'Etc/UTC';
+    }
 
     Object.entries(values).forEach(([key, value]) => {
         const el = document.getElementById(key);

@@ -33,6 +33,7 @@
 .title {
   font-size: min(7dvh, 7dvw);
   font-weight: 900;
+  line-height: 1.08;
 }
 
 .subtitle,
@@ -42,6 +43,11 @@
 .note {
   font-size: min(2.6dvh, 2.6dvw);
   font-weight: 500;
+  line-height: 1.2;
+}
+
+.hijri-date {
+  margin-top: 0.9dvh;
 }
 
 .next-card {

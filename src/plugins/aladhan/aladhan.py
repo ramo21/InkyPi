@@ -3,6 +3,7 @@ from plugins.base_plugin.base_plugin import BasePlugin
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import logging
+import os
 import re
 
 import requests
@@ -15,8 +16,8 @@ PRAYER_KEYS = ["Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha"]
 OPTIONAL_KEYS = ["Imsak", "Sunset", "Midnight"]
 
 METHODS = [
-    {"id": 3, "name": "Muslim World League"},
     {"id": 2, "name": "Islamic Society of North America (ISNA)"},
+    {"id": 3, "name": "Muslim World League"},
     {"id": 5, "name": "Egyptian General Authority of Survey"},
     {"id": 4, "name": "Umm Al-Qura University, Makkah"},
     {"id": 1, "name": "University of Islamic Sciences, Karachi"},
@@ -50,6 +51,16 @@ def _to_bool(value, default=False):
     return str(value).lower() in ["1", "true", "yes", "on"]
 
 
+def _is_valid_timezone(timezone_name):
+    if not timezone_name:
+        return False
+    try:
+        ZoneInfo(str(timezone_name))
+        return True
+    except Exception:
+        return False
+
+
 class Aladhan(BasePlugin):
     """InkyPi plugin for AlAdhan prayer times, Hijri dates, and Ramadan calendar."""
 
@@ -57,6 +68,7 @@ class Aladhan(BasePlugin):
         template_params = super().generate_settings_template()
         template_params["style_settings"] = True
         template_params["methods"] = METHODS
+        template_params["device_timezone"] = self.get_system_timezone(default="Etc/UTC")
         return template_params
 
     def generate_image(self, settings, device_config):
@@ -64,9 +76,7 @@ class Aladhan(BasePlugin):
         lat = self._coordinate_float(settings, "latitude", "Latitude", -90, 90)
         lon = self._coordinate_float(settings, "longitude", "Longitude", -180, 180)
 
-        timezone_name = settings.get("timezonestring") or device_config.get_config(
-            "timezone", default="America/New_York"
-        )
+        timezone_name = self.resolve_timezone(settings, device_config)
         try:
             tz = ZoneInfo(timezone_name)
         except Exception:
@@ -131,7 +141,7 @@ class Aladhan(BasePlugin):
     def _normalise_settings(self, settings):
         defaults = {
             "displayMode": "today",
-            "method": "3",
+            "method": "2",
             "school": "0",
             "midnightMode": "0",
             "latitudeAdjustmentMethod": "3",
@@ -168,6 +178,76 @@ class Aladhan(BasePlugin):
         )
         return normalised
 
+    def resolve_timezone(self, settings, device_config):
+        """Resolve timezone using explicit setting, then InkyPi/Pi timezone, then UTC.
+
+        A manually entered timezone should fail loudly if invalid. If the field is
+        blank, the plugin follows the Pi/InkyPi timezone so prayer calculations
+        track the device's configured clock and daylight-saving rules.
+        """
+        explicit_timezone = str(settings.get("timezonestring") or "").strip()
+        if explicit_timezone:
+            if _is_valid_timezone(explicit_timezone):
+                return explicit_timezone
+            raise RuntimeError(f"Invalid timezone: {explicit_timezone}")
+
+        device_timezone = self.get_device_timezone(device_config)
+        if _is_valid_timezone(device_timezone):
+            return device_timezone
+
+        system_timezone = self.get_system_timezone(default="Etc/UTC")
+        if _is_valid_timezone(system_timezone):
+            return system_timezone
+
+        return "Etc/UTC"
+
+    def get_device_timezone(self, device_config):
+        """Read the timezone configured in InkyPi, if available."""
+        if not device_config:
+            return None
+        try:
+            return device_config.get_config("timezone", default=None)
+        except TypeError:
+            try:
+                return device_config.get_config("timezone")
+            except Exception:
+                return None
+        except Exception:
+            return None
+
+    def get_system_timezone(self, default="Etc/UTC"):
+        """Best-effort Pi/Linux timezone detection for settings defaults.
+
+        Raspberry Pi OS usually exposes the timezone through /etc/timezone or the
+        /etc/localtime symlink to /usr/share/zoneinfo/<Area>/<City>.
+        """
+        tz_env = os.environ.get("TZ")
+        if tz_env and not tz_env.startswith(":") and _is_valid_timezone(tz_env):
+            return tz_env
+
+        try:
+            tz_file = "/etc/timezone"
+            if os.path.exists(tz_file):
+                timezone_name = open(tz_file, "r", encoding="utf-8").read().strip()
+                if _is_valid_timezone(timezone_name):
+                    return timezone_name
+        except Exception:
+            pass
+
+        try:
+            localtime = "/etc/localtime"
+            if os.path.islink(localtime):
+                target = os.path.realpath(localtime)
+                marker = "/zoneinfo/"
+                if marker in target:
+                    timezone_name = target.split(marker, 1)[1]
+                    if _is_valid_timezone(timezone_name):
+                        return timezone_name
+        except Exception:
+            pass
+
+        return default
+
     def _required_float(self, settings, key, label):
         value = settings.get(key)
         try:
@@ -202,7 +282,7 @@ class Aladhan(BasePlugin):
         params = {
             "latitude": lat,
             "longitude": lon,
-            "method": settings.get("method", "3"),
+            "method": settings.get("method", "2"),
             "school": settings.get("school", "0"),
             "midnightMode": settings.get("midnightMode", "0"),
             "latitudeAdjustmentMethod": settings.get("latitudeAdjustmentMethod", "3"),
