@@ -152,6 +152,91 @@
     </div>
 </div>
 
+
+<hr class="settings-divider">
+
+<div class="form-group">
+    <label for="audioEnabled" class="form-label">Prayer audio</label>
+    <div class="toggle-container">
+        <input type="checkbox" id="audioEnabled" name="audioEnabled" class="toggle-checkbox" value="false"
+            onclick="this.value=this.checked ? 'true' : 'false'; togglePrayerAudioControls();">
+        <label for="audioEnabled" class="toggle-label"></label>
+    </div>
+    <small class="form-help">Writes today's prayer audio schedule for the background prayer-audio service. The screen does not need to refresh at each prayer.</small>
+</div>
+
+<div class="prayer-audio-control">
+    <div class="form-group">
+        <label for="audioReciterDirectory" class="form-label">Mu'adhin audio folder</label>
+        <input type="text" id="audioReciterDirectory" name="audioReciterDirectory" class="form-input"
+            placeholder="{{ audio_default_dir | default('/home/inkypi/adhan_audio') }}">
+        <small class="form-help">Expected: <code>/home/inkypi/adhan_audio/Muadhin Name/adhan.mp3</code>, <code>iqama.mp3</code>, and optional Fajr-specific <code>fajr_iqama.mp3</code>.</small>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="audioReciterMode" class="form-label">Mu'adhin selection mode</label>
+            <select id="audioReciterMode" name="audioReciterMode" class="form-input">
+                <option value="specific">Use selected Mu'adhin</option>
+                <option value="random_daily">Random Mu'adhin for the day</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="audioReciterName" class="form-label">Downloaded Mu'adhin</label>
+            <select id="audioReciterName" name="audioReciterName" class="form-input">
+                <option value="">Auto / first available</option>
+                {% for reciter in audio_reciters %}
+                <option value="{{ reciter }}">{{ reciter }}</option>
+                {% endfor %}
+            </select>
+            <small class="form-help">Reload this settings page after adding new Mu'adhin folders.</small>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label for="audioReciterManualName" class="form-label">Manual Mu'adhin folder name</label>
+        <input type="text" id="audioReciterManualName" name="audioReciterManualName" class="form-input" placeholder="Optional, overrides dropdown">
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="audioPlaybackMode" class="form-label">What to play</label>
+            <select id="audioPlaybackMode" name="audioPlaybackMode" class="form-input">
+                <option value="both">Iqama, then Adhan</option>
+                <option value="iqama_only">Iqama only</option>
+            </select>
+            <input type="hidden" id="audioSequence" name="audioSequence" value="iqama_then_adhan">
+            <small class="form-help">Order is always iqama first. Use this to choose whether adhan also plays after the delay.</small>
+        </div>
+        <div class="form-group">
+            <label for="audioDelayMinutes" class="form-label">Delay before adhan, minutes</label>
+            <input type="number" id="audioDelayMinutes" name="audioDelayMinutes" class="form-input" min="0" max="180" step="1">
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="audioVolumePercent" class="form-label">Volume percent</label>
+            <input type="number" id="audioVolumePercent" name="audioVolumePercent" class="form-input" min="0" max="100" step="1">
+        </div>
+        <div class="form-group">
+            <label for="audioPlayerCommand" class="form-label">Custom player command</label>
+            <input type="text" id="audioPlayerCommand" name="audioPlayerCommand" class="form-input" placeholder='Optional, e.g. mpg123 -q "{file}"'>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label class="form-label">Prayers with audio</label>
+        <div class="checkbox-grid">
+            <label><input type="checkbox" id="audioPrayerFajr" name="audioPrayerFajr" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Fajr</label>
+            <label><input type="checkbox" id="audioPrayerDhuhr" name="audioPrayerDhuhr" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Dhuhr</label>
+            <label><input type="checkbox" id="audioPrayerAsr" name="audioPrayerAsr" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Asr</label>
+            <label><input type="checkbox" id="audioPrayerMaghrib" name="audioPrayerMaghrib" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Maghrib</label>
+            <label><input type="checkbox" id="audioPrayerIsha" name="audioPrayerIsha" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Isha</label>
+        </div>
+    </div>
+</div>
+
 <!-- Map selector modal. Uses InkyPi's modal helpers when available and falls back to inline display. -->
 <div id="aladhanMapModal" class="modal" style="display: none;">
     <div class="modal-content">
@@ -197,7 +282,22 @@ document.addEventListener('DOMContentLoaded', () => {
         showImsak: 'false',
         showSunrise: 'true',
         showSunset: 'false',
-        showMidnight: 'false'
+        showMidnight: 'false',
+        audioEnabled: 'false',
+        audioReciterDirectory: '{{ audio_default_dir | default("/home/inkypi/adhan_audio") }}',
+        audioReciterMode: 'specific',
+        audioReciterName: '',
+        audioReciterManualName: '',
+        audioSequence: 'iqama_then_adhan',
+        audioPlaybackMode: 'both',
+        audioDelayMinutes: '10',
+        audioVolumePercent: '80',
+        audioPlayerCommand: '',
+        audioPrayerFajr: 'true',
+        audioPrayerDhuhr: 'true',
+        audioPrayerAsr: 'true',
+        audioPrayerMaghrib: 'true',
+        audioPrayerIsha: 'true'
     };
 
     const values = (typeof loadPluginSettings !== 'undefined' && loadPluginSettings) ? {...defaults, ...pluginSettings} : defaults;
@@ -216,6 +316,14 @@ document.addEventListener('DOMContentLoaded', () => {
             el.value = value || '';
         }
     });
+
+    window.togglePrayerAudioControls = function() {
+        const enabled = document.getElementById('audioEnabled')?.checked;
+        document.querySelectorAll('.prayer-audio-control').forEach((el) => {
+            el.style.display = enabled ? '' : 'none';
+        });
+    };
+    togglePrayerAudioControls();
 
     const OSM_TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
     const MAKKAH = {lat: 21.4225, lng: 39.8262};

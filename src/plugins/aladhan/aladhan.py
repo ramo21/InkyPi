@@ -2,8 +2,11 @@ from plugins.base_plugin.base_plugin import BasePlugin
 
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
+import json
 import logging
 import os
+from pathlib import Path
+import random
 import re
 
 import requests
@@ -69,6 +72,8 @@ class Aladhan(BasePlugin):
         template_params["style_settings"] = True
         template_params["methods"] = METHODS
         template_params["device_timezone"] = self.get_system_timezone(default="Etc/UTC")
+        template_params["audio_default_dir"] = self.default_audio_directory()
+        template_params["audio_reciters"] = self.scan_audio_reciters(self.default_audio_directory())
         return template_params
 
     def generate_image(self, settings, device_config):
@@ -90,6 +95,7 @@ class Aladhan(BasePlugin):
 
         try:
             today_data = self.get_timings(now, lat, lon, timezone_name, settings)
+            self.write_prayer_audio_schedule(settings, today_data.get("timings", {}), timezone_name, now, "aladhan")
             current_prayer, next_prayer = self.get_prayer_status(today_data, now, time_format)
             calendar_rows = []
             ramadan_rows = []
@@ -138,6 +144,120 @@ class Aladhan(BasePlugin):
             raise RuntimeError("Failed to render AlAdhan image. Please check logs.")
         return image
 
+    def default_audio_directory(self):
+        configured = os.environ.get("INKYPI_PRAYER_AUDIO_LIBRARY")
+        if configured:
+            return configured
+        inkypi_home = Path("/home/inkypi")
+        if inkypi_home.exists():
+            return str(inkypi_home / "adhan_audio")
+        return str(Path.home() / "adhan_audio")
+
+    def audio_config_dir(self):
+        configured = os.environ.get("INKYPI_PRAYER_AUDIO_DIR")
+        if configured:
+            return Path(configured).expanduser()
+        return Path.home() / ".config" / "inkypi" / "prayer_audio"
+
+    def scan_audio_reciters(self, audio_dir):
+        base = Path(str(audio_dir or self.default_audio_directory())).expanduser()
+        if not base.exists() or not base.is_dir():
+            return []
+        names = []
+        for child in sorted(base.iterdir()):
+            if not child.is_dir() or child.name.startswith("."):
+                continue
+            if self.reciter_has_audio(child):
+                names.append(child.name)
+        return names
+
+    def reciter_has_audio(self, reciter_dir):
+        extensions = {".mp3", ".wav", ".ogg", ".flac", ".m4a", ".aac"}
+        try:
+            files = [p for p in Path(reciter_dir).iterdir() if p.is_file() and p.suffix.lower() in extensions]
+        except Exception:
+            return False
+        names = [p.stem.lower() for p in files]
+        return any("adhan" in name for name in names) or any("iqama" in name for name in names)
+
+    def clean_audio_timing(self, value):
+        if not value:
+            return None
+        raw = str(value).strip()
+        if "T" in raw:
+            raw = raw.split("T", 1)[1]
+        raw = raw.split(" ", 1)[0]
+        match = re.search(r"(\d{1,2}):(\d{2})", raw)
+        if not match:
+            return None
+        hour = int(match.group(1))
+        minute = int(match.group(2))
+        if not 0 <= hour <= 23 or not 0 <= minute <= 59:
+            return None
+        return f"{hour:02d}:{minute:02d}"
+
+    def selected_audio_reciter(self, settings, now):
+        audio_dir = settings.get("audioReciterDirectory") or self.default_audio_directory()
+        reciters = self.scan_audio_reciters(audio_dir)
+        manual = str(settings.get("audioReciterManualName") or "").strip()
+        selected = str(settings.get("audioReciterName") or "").strip()
+        if manual:
+            selected = manual
+        if settings.get("audioReciterMode") == "random_daily" and reciters:
+            rng = random.Random(f"{now.strftime('%Y-%m-%d')}|aladhan|{'|'.join(reciters)}")
+            return rng.choice(reciters)
+        return selected if selected else (reciters[0] if reciters else "")
+
+    def enabled_audio_prayers(self, settings):
+        prayers = []
+        for key in ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"]:
+            setting_key = f"audioPrayer{key}"
+            if _to_bool(settings.get(setting_key), True):
+                prayers.append(key)
+        return prayers
+
+    def write_prayer_audio_schedule(self, settings, timings, timezone_name, now, plugin_id):
+        config_dir = self.audio_config_dir()
+        config_dir.mkdir(parents=True, exist_ok=True)
+        config_path = config_dir / f"{plugin_id}.json"
+        enabled = _to_bool(settings.get("audioEnabled"), False)
+        prayers = {}
+        for key in ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"]:
+            clean = self.clean_audio_timing(timings.get(key))
+            if clean:
+                prayers[key] = clean
+        try:
+            delay = max(0, min(180, int(float(settings.get("audioDelayMinutes") or 10))))
+        except Exception:
+            delay = 10
+        try:
+            volume = max(0, min(100, int(float(settings.get("audioVolumePercent") or 80))))
+        except Exception:
+            volume = 80
+        playback_mode = settings.get("audioPlaybackMode") if settings.get("audioPlaybackMode") in {"both", "iqama_only"} else "both"
+        sequence = "iqama_then_adhan"
+        payload = {
+            "pluginId": plugin_id,
+            "enabled": enabled,
+            "date": now.strftime("%Y-%m-%d"),
+            "timezone": timezone_name,
+            "prayers": prayers,
+            "enabledPrayers": self.enabled_audio_prayers(settings),
+            "reciterDirectory": str(Path(settings.get("audioReciterDirectory") or self.default_audio_directory()).expanduser()),
+            "reciterMode": settings.get("audioReciterMode", "specific"),
+            "selectedReciter": self.selected_audio_reciter(settings, now),
+            "sequence": sequence,
+            "playbackMode": playback_mode,
+            "delayMinutes": delay,
+            "volumePercent": volume,
+            "playerCommand": str(settings.get("audioPlayerCommand") or "").strip(),
+            "writtenAt": datetime.now().isoformat(timespec="seconds"),
+        }
+        tmp = config_path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        tmp.replace(config_path)
+        logger.info("Prayer audio schedule written to %s", config_path)
+
     def _normalise_settings(self, settings):
         defaults = {
             "displayMode": "today",
@@ -159,6 +279,21 @@ class Aladhan(BasePlugin):
             "showSunset": "false",
             "showMidnight": "false",
             "showNextPrayer": "true",
+            "audioEnabled": "false",
+            "audioReciterDirectory": self.default_audio_directory(),
+            "audioReciterMode": "specific",
+            "audioReciterName": "",
+            "audioReciterManualName": "",
+            "audioSequence": "iqama_then_adhan",
+            "audioPlaybackMode": "both",
+            "audioDelayMinutes": "10",
+            "audioVolumePercent": "80",
+            "audioPlayerCommand": "",
+            "audioPrayerFajr": "true",
+            "audioPrayerDhuhr": "true",
+            "audioPrayerAsr": "true",
+            "audioPrayerMaghrib": "true",
+            "audioPrayerIsha": "true",
         }
         normalised = dict(defaults)
         normalised.update(settings or {})
@@ -171,6 +306,12 @@ class Aladhan(BasePlugin):
             "showSunset",
             "showMidnight",
             "showNextPrayer",
+            "audioEnabled",
+            "audioPrayerFajr",
+            "audioPrayerDhuhr",
+            "audioPrayerAsr",
+            "audioPrayerMaghrib",
+            "audioPrayerIsha",
         ]:
             normalised[key] = "true" if _to_bool(normalised.get(key)) else "false"
         normalised["dailyRefreshTime"] = self.normalise_hhmm(

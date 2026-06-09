@@ -189,6 +189,90 @@
     </div>
 </div>
 
+
+<hr class="settings-divider">
+
+<div class="form-group">
+    <label for="audioEnabled">Prayer audio</label>
+    <div class="toggle-container">
+        <input type="checkbox" id="audioEnabled" name="audioEnabled" class="toggle-checkbox" value="false"
+            onclick="this.value=this.checked ? 'true' : 'false'; togglePrayerAudioControls();">
+        <label for="audioEnabled" class="toggle-label"></label>
+    </div>
+    <small>The display refresh can stay daily. A separate background service plays the scheduled iqama/adhan at prayer times.</small>
+</div>
+
+<div class="prayer-audio-control">
+    <div class="form-group">
+        <label for="audioReciterDirectory">Mu'adhin audio folder</label>
+        <input type="text" id="audioReciterDirectory" name="audioReciterDirectory" placeholder="{{ audio_default_dir | default('/home/inkypi/adhan_audio') }}">
+        <small>Expected: <code>/home/inkypi/adhan_audio/Muadhin Name/adhan.mp3</code>, <code>iqama.mp3</code>, and optional Fajr-specific <code>fajr_iqama.mp3</code>.</small>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="audioReciterMode">Mu'adhin selection mode</label>
+            <select id="audioReciterMode" name="audioReciterMode">
+                <option value="specific">Use selected Mu'adhin</option>
+                <option value="random_daily">Random Mu'adhin for the day</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="audioReciterName">Downloaded Mu'adhin</label>
+            <select id="audioReciterName" name="audioReciterName">
+                <option value="">Auto / first available</option>
+                {% for reciter in audio_reciters %}
+                <option value="{{ reciter }}">{{ reciter }}</option>
+                {% endfor %}
+            </select>
+            <small>Reload this settings page after adding new Mu'adhin folders.</small>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label for="audioReciterManualName">Manual Mu'adhin folder name</label>
+        <input type="text" id="audioReciterManualName" name="audioReciterManualName" placeholder="Optional, overrides dropdown">
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="audioPlaybackMode">What to play</label>
+            <select id="audioPlaybackMode" name="audioPlaybackMode">
+                <option value="both">Iqama, then Adhan</option>
+                <option value="iqama_only">Iqama only</option>
+            </select>
+            <input type="hidden" id="audioSequence" name="audioSequence" value="iqama_then_adhan">
+            <small>Order is always iqama first. Use this to choose whether adhan also plays after the delay.</small>
+        </div>
+        <div class="form-group">
+            <label for="audioDelayMinutes">Delay before adhan, minutes</label>
+            <input type="number" id="audioDelayMinutes" name="audioDelayMinutes" min="0" max="180" step="1">
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="audioVolumePercent">Volume percent</label>
+            <input type="number" id="audioVolumePercent" name="audioVolumePercent" min="0" max="100" step="1">
+        </div>
+        <div class="form-group">
+            <label for="audioPlayerCommand">Custom player command</label>
+            <input type="text" id="audioPlayerCommand" name="audioPlayerCommand" placeholder='Optional, e.g. mpg123 -q "{file}"'>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>Prayers with audio</label>
+        <div class="checkbox-grid">
+            <label><input type="checkbox" id="audioPrayerFajr" name="audioPrayerFajr" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Fajr</label>
+            <label><input type="checkbox" id="audioPrayerDhuhr" name="audioPrayerDhuhr" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Dhuhr</label>
+            <label><input type="checkbox" id="audioPrayerAsr" name="audioPrayerAsr" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Asr</label>
+            <label><input type="checkbox" id="audioPrayerMaghrib" name="audioPrayerMaghrib" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Maghrib</label>
+            <label><input type="checkbox" id="audioPrayerIsha" name="audioPrayerIsha" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Isha</label>
+        </div>
+    </div>
+</div>
+
 <div id="combinedMapModal" class="modal" style="display: none;">
     <div class="modal-content">
         <span class="close-button" id="closeCombinedMapX">×</span>
@@ -246,7 +330,22 @@ document.addEventListener('DOMContentLoaded', () => {
         showHijri: 'true',
         showGregorian: 'true',
         showPrayerMethod: 'true',
-        showSunrisePrayer: 'true'
+        showSunrisePrayer: 'true',
+        audioEnabled: 'false',
+        audioReciterDirectory: '{{ audio_default_dir | default("/home/inkypi/adhan_audio") }}',
+        audioReciterMode: 'specific',
+        audioReciterName: '',
+        audioReciterManualName: '',
+        audioSequence: 'iqama_then_adhan',
+        audioPlaybackMode: 'both',
+        audioDelayMinutes: '10',
+        audioVolumePercent: '80',
+        audioPlayerCommand: '',
+        audioPrayerFajr: 'true',
+        audioPrayerDhuhr: 'true',
+        audioPrayerAsr: 'true',
+        audioPrayerMaghrib: 'true',
+        audioPrayerIsha: 'true'
     };
     const values = (typeof loadPluginSettings !== 'undefined' && loadPluginSettings) ? {...defaults, ...pluginSettings} : defaults;
 
@@ -266,6 +365,14 @@ document.addEventListener('DOMContentLoaded', () => {
             el.value = value || '';
         }
     });
+
+    window.togglePrayerAudioControls = function() {
+        const enabled = document.getElementById('audioEnabled')?.checked;
+        document.querySelectorAll('.prayer-audio-control').forEach((el) => {
+            el.style.display = enabled ? '' : 'none';
+        });
+    };
+    togglePrayerAudioControls();
 
     const TIMEZONE_CENTERS = {
         'America/Chicago': [41.8781, -87.6298],
