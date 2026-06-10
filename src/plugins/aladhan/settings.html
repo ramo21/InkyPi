@@ -222,7 +222,7 @@
         <label for="audioReciterDirectory" class="form-label">Mu'adhin audio folder</label>
         <input type="text" id="audioReciterDirectory" name="audioReciterDirectory" class="form-input"
             placeholder="{{ audio_default_dir | default('/home/inkypi/adhan_audio') }}">
-        <small class="form-help">Expected: <code>/home/inkypi/adhan_audio/Muadhin Name/adhan.mp3</code>, <code>iqama.mp3</code>, and optional Fajr-specific <code>fajr_iqama.mp3</code>.</small>
+        <small class="form-help">Expected: <code>/home/inkypi/adhan_audio/Muadhin Name/adhan.mp3</code>, optional Fajr-only <code>fajr_adhan.mp3</code>, and <code>iqama.mp3</code>.</small>
     </div>
 
     <div class="form-row">
@@ -254,14 +254,14 @@
         <div class="form-group">
             <label for="audioPlaybackMode" class="form-label">What to play</label>
             <select id="audioPlaybackMode" name="audioPlaybackMode" class="form-input">
-                <option value="both">Iqama, then Adhan</option>
-                <option value="iqama_only">Iqama only</option>
+                <option value="both">Adhan, then Iqama</option>
+                <option value="adhan_only">Adhan only</option>
             </select>
-            <input type="hidden" id="audioSequence" name="audioSequence" value="iqama_then_adhan">
-            <small class="form-help">Order is always iqama first. Use this to choose whether adhan also plays after the delay.</small>
+            <input type="hidden" id="audioSequence" name="audioSequence" value="adhan_then_iqama">
+            <small class="form-help">Order is always adhan first. Use this to choose whether iqama also plays after the delay.</small>
         </div>
         <div class="form-group">
-            <label for="audioDelayMinutes" class="form-label">Delay before adhan, minutes</label>
+            <label for="audioDelayMinutes" class="form-label">Delay before iqama, minutes</label>
             <input type="number" id="audioDelayMinutes" name="audioDelayMinutes" class="form-input" min="0" max="180" step="1">
         </div>
     </div>
@@ -340,7 +340,7 @@ document.addEventListener('DOMContentLoaded', () => {
         audioReciterMode: 'specific',
         audioReciterName: '',
         audioReciterManualName: '',
-        audioSequence: 'iqama_then_adhan',
+        audioSequence: 'adhan_then_iqama',
         audioPlaybackMode: 'both',
         audioDelayMinutes: '10',
         audioVolumePercent: '80',
@@ -366,6 +366,10 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const values = (typeof loadPluginSettings !== 'undefined' && loadPluginSettings) ? {...defaults, ...pluginSettings} : defaults;
+    if (values.audioPlaybackMode === 'iqama_only') {
+        values.audioPlaybackMode = 'adhan_only';
+    }
+    values.audioSequence = 'adhan_then_iqama';
     if (!String(values.timezonestring || '').trim()) {
         values.timezonestring = defaults.timezonestring || 'Etc/UTC';
     }

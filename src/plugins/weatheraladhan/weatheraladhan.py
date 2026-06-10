@@ -337,8 +337,14 @@ class WeatherAladhan(BasePlugin):
             volume = max(0, min(100, int(float(settings.get("audioVolumePercent") or 80))))
         except Exception:
             volume = 80
-        playback_mode = settings.get("audioPlaybackMode") if settings.get("audioPlaybackMode") in {"both", "iqama_only"} else "both"
-        sequence = "iqama_then_adhan"
+        raw_playback_mode = settings.get("audioPlaybackMode")
+        if raw_playback_mode == "iqama_only":
+            # Backward compatibility with older saved settings. The corrected first
+            # audio file is adhan, so the old first-file-only mode maps to adhan_only.
+            playback_mode = "adhan_only"
+        else:
+            playback_mode = raw_playback_mode if raw_playback_mode in {"both", "adhan_only"} else "both"
+        sequence = "adhan_then_iqama"
         refresh_settings = dict(settings or {})
         refresh_settings["plugin_id"] = plugin_id
         payload = {
@@ -409,7 +415,7 @@ class WeatherAladhan(BasePlugin):
             "audioReciterMode": "specific",
             "audioReciterName": "",
             "audioReciterManualName": "",
-            "audioSequence": "iqama_then_adhan",
+            "audioSequence": "adhan_then_iqama",
             "audioPlaybackMode": "both",
             "audioDelayMinutes": "10",
             "audioVolumePercent": "80",

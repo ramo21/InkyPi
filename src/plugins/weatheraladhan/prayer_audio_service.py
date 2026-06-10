@@ -4,7 +4,7 @@
 This service watches schedule JSON files written by the AlAdhan and
 Weather + AlAdhan plugins. It can:
 
-1. Play iqama and optional adhan audio at prayer times.
+1. Play adhan and optional iqama audio at prayer times.
 2. Trigger an InkyPi display refresh shortly after prayer/state-change times,
    so the static e-paper image updates the current/next prayer highlight.
 
@@ -71,22 +71,21 @@ def parse_event_time(date_value: str, time_value: str, timezone_name: str) -> Op
 def audio_files_for_reciter(reciter_dir: Path) -> Dict[str, Optional[Path]]:
     files = [p for p in reciter_dir.iterdir() if p.is_file() and p.suffix.lower() in AUDIO_EXTENSIONS]
 
-    def pick(kind: str) -> Optional[Path]:
+    def pick(kind: str, exclude: Tuple[str, ...] = ()) -> Optional[Path]:
         exact = [p for p in files if p.stem.lower() == kind]
         if exact:
             return exact[0]
-        partial = [p for p in files if kind in p.stem.lower()]
+        partial = [
+            p for p in files
+            if kind in p.stem.lower() and all(blocked not in p.stem.lower() for blocked in exclude)
+        ]
         return partial[0] if partial else None
 
-    # Fajr commonly uses a different iqama recording. Preferred filename is
-    # fajr_iqama.mp3. iqama_fajr.mp3 is also accepted. If neither exists,
-    # the service falls back to the regular iqama.mp3.
-    fajr_iqama = pick("fajr_iqama") or pick("iqama_fajr")
-    regular_iqama = pick("iqama")
+    regular_adhan = pick("adhan", exclude=("fajr_adhan",))
     return {
-        "adhan": pick("adhan"),
-        "iqama": regular_iqama,
-        "fajr_iqama": fajr_iqama or regular_iqama,
+        "adhan": regular_adhan,
+        "fajr_adhan": pick("fajr_adhan") or regular_adhan,
+        "iqama": pick("iqama"),
     }
 
 
@@ -153,7 +152,7 @@ def build_audio_events(config: Dict) -> Iterable[Tuple[datetime, str, Path, Dict
     date_value = config.get("date")
     selected_reciter = config.get("selectedReciter") or ""
     reciter_dir = Path(config.get("reciterDirectory") or "") / selected_reciter
-    files = audio_files_for_reciter(reciter_dir) if reciter_dir.exists() else {"adhan": None, "iqama": None, "fajr_iqama": None}
+    files = audio_files_for_reciter(reciter_dir) if reciter_dir.exists() else {"adhan": None, "fajr_adhan": None, "iqama": None}
     delay_minutes = int(config.get("delayMinutes") or 10)
     prayers = config.get("prayers") or {}
     enabled_prayers = set(config.get("enabledPrayers") or [])
@@ -167,13 +166,18 @@ def build_audio_events(config: Dict) -> Iterable[Tuple[datetime, str, Path, Dict
         if not base_time:
             continue
         playback_mode = config.get("playbackMode") or "both"
-        iqama_key = "fajr_iqama" if prayer_name == "Fajr" else "iqama"
-        iqama_file = files.get(iqama_key) or files.get("iqama")
-        adhan_file = files.get("adhan")
-        if iqama_file:
-            built.append((base_time, f"{prayer_name}:iqama", iqama_file, config))
-        if playback_mode != "iqama_only" and adhan_file:
-            built.append((base_time + timedelta(minutes=delay_minutes), f"{prayer_name}:adhan", adhan_file, config))
+        # Backward compatibility: older builds used iqama_only when the first file
+        # was incorrectly labeled as iqama. After the naming correction, that mode
+        # means play only the first call, which is adhan.
+        if playback_mode == "iqama_only":
+            playback_mode = "adhan_only"
+        adhan_key = "fajr_adhan" if prayer_name == "Fajr" else "adhan"
+        adhan_file = files.get(adhan_key) or files.get("adhan")
+        iqama_file = files.get("iqama")
+        if adhan_file:
+            built.append((base_time, f"{prayer_name}:adhan", adhan_file, config))
+        if playback_mode != "adhan_only" and iqama_file:
+            built.append((base_time + timedelta(minutes=delay_minutes), f"{prayer_name}:iqama", iqama_file, config))
     return built
 
 
