@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
-"""Prayer audio scheduler for InkyPi AlAdhan-based plugins.
+"""Prayer audio and display-refresh scheduler for InkyPi AlAdhan-based plugins.
 
-This service watches prayer-audio schedule JSON files written by the AlAdhan
-and Weather + AlAdhan plugins, then plays iqama and optional adhan audio files at the right
-local times. It is intentionally independent from e-paper refreshes.
+This service watches schedule JSON files written by the AlAdhan and
+Weather + AlAdhan plugins. It can:
+
+1. Play iqama and optional adhan audio at prayer times.
+2. Trigger an InkyPi display refresh shortly after prayer/state-change times,
+   so the static e-paper image updates the current/next prayer highlight.
+
+The display refresh uses InkyPi's local /update_now endpoint by default. That
+endpoint performs the same kind of manual plugin render used by the web UI.
 """
 from __future__ import annotations
 
@@ -19,6 +25,8 @@ import sys
 import time
 from datetime import datetime, timedelta
 from typing import Dict, Iterable, List, Optional, Tuple
+from urllib import parse as urlparse
+from urllib import request as urlrequest
 
 try:
     from zoneinfo import ZoneInfo
@@ -29,6 +37,7 @@ LOG = logging.getLogger("inkypi-prayer-audio")
 DEFAULT_CONFIG_DIR = Path(os.environ.get("INKYPI_PRAYER_AUDIO_DIR", Path.home() / ".config" / "inkypi" / "prayer_audio"))
 STATE_FILE = DEFAULT_CONFIG_DIR / "state.json"
 AUDIO_EXTENSIONS = {".mp3", ".wav", ".ogg", ".flac", ".m4a", ".aac"}
+DEFAULT_DISPLAY_REFRESH_URL = os.environ.get("INKYPI_DISPLAY_REFRESH_URL", "http://127.0.0.1/update_now")
 
 
 def load_json(path: Path, default):
@@ -126,7 +135,7 @@ def play_file(file_path: Path, config: Dict, dry_run: bool = False) -> bool:
         return False
     LOG.info("Playing %s", file_path)
     if dry_run:
-        print("DRY RUN:", " ".join(shlex.quote(part) for part in command))
+        print("DRY RUN AUDIO:", " ".join(shlex.quote(part) for part in command))
         return True
     set_volume_if_requested(config)
     try:
@@ -137,7 +146,7 @@ def play_file(file_path: Path, config: Dict, dry_run: bool = False) -> bool:
         return False
 
 
-def build_events(config: Dict) -> Iterable[Tuple[datetime, str, Path, Dict]]:
+def build_audio_events(config: Dict) -> Iterable[Tuple[datetime, str, Path, Dict]]:
     if not config.get("enabled"):
         return []
     timezone_name = config.get("timezone") or "Etc/UTC"
@@ -145,7 +154,6 @@ def build_events(config: Dict) -> Iterable[Tuple[datetime, str, Path, Dict]]:
     selected_reciter = config.get("selectedReciter") or ""
     reciter_dir = Path(config.get("reciterDirectory") or "") / selected_reciter
     files = audio_files_for_reciter(reciter_dir) if reciter_dir.exists() else {"adhan": None, "iqama": None, "fajr_iqama": None}
-    sequence = config.get("sequence") or "iqama_then_adhan"
     delay_minutes = int(config.get("delayMinutes") or 10)
     prayers = config.get("prayers") or {}
     enabled_prayers = set(config.get("enabledPrayers") or [])
@@ -169,6 +177,85 @@ def build_events(config: Dict) -> Iterable[Tuple[datetime, str, Path, Dict]]:
     return built
 
 
+def build_display_refresh_events(config: Dict) -> Iterable[Tuple[datetime, str, Dict]]:
+    """Build display-refresh events from a plugin schedule config."""
+    if not config.get("displayRefreshEnabled"):
+        return []
+    timezone_name = config.get("timezone") or "Etc/UTC"
+    date_value = config.get("date")
+    timings = config.get("refreshTimings") or config.get("prayers") or {}
+    enabled_events = set(config.get("displayRefreshEvents") or [])
+    if not date_value or not enabled_events:
+        return []
+    try:
+        delay_seconds = max(0, min(3600, int(float(config.get("displayRefreshDelaySeconds") or 60))))
+    except Exception:
+        delay_seconds = 60
+    built = []
+    for event_name, event_time_value in timings.items():
+        if event_name not in enabled_events:
+            continue
+        base_time = parse_event_time(date_value, event_time_value, timezone_name)
+        if not base_time:
+            continue
+        built.append((base_time + timedelta(seconds=delay_seconds), f"{event_name}:display", config))
+    return built
+
+
+def trigger_display_refresh(config: Dict, label: str, dry_run: bool = False) -> bool:
+    """Trigger InkyPi to re-render this plugin using the saved settings."""
+    settings = config.get("displayUpdateSettings") or {}
+    plugin_id = settings.get("plugin_id") or config.get("pluginId")
+    if not plugin_id:
+        LOG.error("Display refresh requested but no plugin_id was configured.")
+        return False
+    settings = dict(settings)
+    settings["plugin_id"] = plugin_id
+    command_template = str(config.get("displayRefreshCommand") or "").strip()
+    url = str(config.get("displayRefreshUrl") or DEFAULT_DISPLAY_REFRESH_URL).strip()
+
+    if command_template:
+        replacements = {
+            "{label}": label,
+            "{plugin_id}": str(plugin_id),
+            "{url}": url,
+        }
+        command = []
+        for part in shlex.split(command_template):
+            for token, value in replacements.items():
+                part = part.replace(token, value)
+            command.append(part)
+        LOG.info("Triggering display refresh with command for %s", label)
+        if dry_run:
+            print("DRY RUN DISPLAY:", " ".join(shlex.quote(part) for part in command))
+            return True
+        try:
+            completed = subprocess.run(command, check=False)
+            return completed.returncode == 0
+        except Exception as exc:
+            LOG.exception("Display refresh command failed: %s", exc)
+            return False
+
+    encoded = urlparse.urlencode(settings).encode("utf-8")
+    request = urlrequest.Request(url, data=encoded, method="POST")
+    request.add_header("Content-Type", "application/x-www-form-urlencoded")
+    LOG.info("Triggering InkyPi display refresh for %s via %s", label, url)
+    if dry_run:
+        print(f"DRY RUN DISPLAY: POST {url} plugin_id={plugin_id} label={label}")
+        return True
+    try:
+        with urlrequest.urlopen(request, timeout=180) as response:
+            body = response.read(512).decode("utf-8", errors="replace")
+            if 200 <= response.status < 300:
+                LOG.info("Display refresh request accepted: %s", body[:200])
+                return True
+            LOG.error("Display refresh HTTP %s: %s", response.status, body[:200])
+            return False
+    except Exception as exc:
+        LOG.exception("Display refresh request failed: %s", exc)
+        return False
+
+
 def load_configs(config_dir: Path) -> List[Dict]:
     configs = []
     for path in sorted(config_dir.glob("*.json")):
@@ -185,38 +272,55 @@ def event_key(config: Dict, event_time: datetime, label: str) -> str:
     return f"{config.get('pluginId','plugin')}|{event_time.date().isoformat()}|{label}"
 
 
+def should_fire_event(current: datetime, event_time: datetime, window_seconds: int) -> bool:
+    local_now = current.astimezone(event_time.tzinfo) if event_time.tzinfo else current.replace(tzinfo=None)
+    seconds = (local_now - event_time).total_seconds()
+    return 0 <= seconds <= window_seconds
+
+
 def run_once(config_dir: Path, dry_run: bool = False, now: Optional[datetime] = None, window_seconds: int = 45) -> int:
-    state = load_json(STATE_FILE, {})
+    state_file = config_dir / STATE_FILE.name
+    state = load_json(state_file, {})
     played = state.setdefault("played", {})
+    refreshed = state.setdefault("display_refreshed", {})
     current = now or datetime.now().astimezone()
     count = 0
     for config in load_configs(config_dir):
-        for event_time, label, file_path, event_config in build_events(config):
-            # Compare aware datetimes in event timezone.
-            local_now = current.astimezone(event_time.tzinfo) if event_time.tzinfo else current.replace(tzinfo=None)
-            seconds = (local_now - event_time).total_seconds()
-            if 0 <= seconds <= window_seconds:
+        for event_time, label, file_path, event_config in build_audio_events(config):
+            if should_fire_event(current, event_time, window_seconds):
                 key = event_key(event_config, event_time, label)
                 if played.get(key):
                     continue
                 if play_file(file_path, event_config, dry_run=dry_run):
                     played[key] = datetime.now().isoformat(timespec="seconds")
                     count += 1
+
+        for event_time, label, event_config in build_display_refresh_events(config):
+            if should_fire_event(current, event_time, window_seconds):
+                key = event_key(event_config, event_time, label)
+                if refreshed.get(key):
+                    continue
+                if trigger_display_refresh(event_config, label, dry_run=dry_run):
+                    refreshed[key] = datetime.now().isoformat(timespec="seconds")
+                    count += 1
+
     # Keep state small.
     today_prefix = datetime.now().date().isoformat()
     if len(played) > 500:
         state["played"] = {k: v for k, v in played.items() if today_prefix in k}
-    write_json(STATE_FILE, state)
+    if len(refreshed) > 500:
+        state["display_refreshed"] = {k: v for k, v in refreshed.items() if today_prefix in k}
+    write_json(state_file, state)
     return count
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="InkyPi prayer audio scheduler")
+    parser = argparse.ArgumentParser(description="InkyPi prayer audio and display-refresh scheduler")
     parser.add_argument("--config-dir", default=str(DEFAULT_CONFIG_DIR), help="Directory containing plugin schedule JSON files")
     parser.add_argument("--interval", type=int, default=20, help="Polling interval in seconds")
     parser.add_argument("--once", action="store_true", help="Check schedules once, then exit")
-    parser.add_argument("--dry-run", action="store_true", help="Print player commands instead of playing audio")
-    parser.add_argument("--list", action="store_true", help="List upcoming configured audio events")
+    parser.add_argument("--dry-run", action="store_true", help="Print actions instead of playing audio or refreshing display")
+    parser.add_argument("--list", action="store_true", help="List upcoming configured audio and display-refresh events")
     parser.add_argument("--log-level", default="INFO")
     args = parser.parse_args(argv)
 
@@ -225,17 +329,21 @@ def main(argv: Optional[List[str]] = None) -> int:
     config_dir.mkdir(parents=True, exist_ok=True)
 
     if args.list:
-        events = []
+        audio_events = []
+        display_events = []
         for config in load_configs(config_dir):
-            events.extend(build_events(config))
-        for event_time, label, file_path, config in sorted(events, key=lambda item: item[0]):
-            print(f"{event_time.isoformat()}  {config.get('pluginId')}  {label}  {file_path}")
+            audio_events.extend(build_audio_events(config))
+            display_events.extend(build_display_refresh_events(config))
+        for event_time, label, file_path, config in sorted(audio_events, key=lambda item: item[0]):
+            print(f"{event_time.isoformat()}  {config.get('pluginId')}  audio:{label}  {file_path}")
+        for event_time, label, config in sorted(display_events, key=lambda item: item[0]):
+            print(f"{event_time.isoformat()}  {config.get('pluginId')}  refresh:{label}  {config.get('displayRefreshUrl') or DEFAULT_DISPLAY_REFRESH_URL}")
         return 0
 
     if args.once:
         return 0 if run_once(config_dir, dry_run=args.dry_run) >= 0 else 1
 
-    LOG.info("Starting prayer audio scheduler; config dir: %s", config_dir)
+    LOG.info("Starting prayer audio/display scheduler; config dir: %s", config_dir)
     while True:
         try:
             run_once(config_dir, dry_run=args.dry_run)

@@ -278,6 +278,47 @@ class WeatherAladhan(BasePlugin):
                 prayers.append(key)
         return prayers
 
+    def display_refresh_events(self, settings):
+        """Return prayer/state-change events that should refresh the display.
+
+        Main prayers are controlled by dedicated refresh checkboxes. Optional
+        events follow the corresponding Show/Hide options, so Sunrise only
+        triggers a refresh when Sunrise is displayed.
+        """
+        events = []
+        for key in ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"]:
+            if _to_bool(settings.get(f"stateRefreshPrayer{key}"), True):
+                events.append(key)
+
+        optional_event_controls = {
+            "Imsak": "showImsak",
+            "Sunrise": "showSunrise",
+            "Sunset": "showSunset",
+            "Midnight": "showMidnight",
+        }
+        # Weather + AlAdhan uses showSunrisePrayer for the Sunrise row.
+        if "showSunrisePrayer" in settings:
+            optional_event_controls["Sunrise"] = "showSunrisePrayer"
+
+        for event_name, show_key in optional_event_controls.items():
+            if _to_bool(settings.get(show_key), False) and _to_bool(settings.get(f"stateRefresh{event_name}"), True):
+                events.append(event_name)
+        return events
+
+    def display_refresh_timings(self, timings):
+        values = {}
+        for key in ["Imsak", "Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Sunset", "Isha", "Midnight"]:
+            clean = self.clean_audio_timing(timings.get(key))
+            if clean:
+                values[key] = clean
+        return values
+
+    def display_refresh_delay_seconds(self, settings):
+        try:
+            return max(0, min(3600, int(float(settings.get("stateDisplayRefreshDelaySeconds") or 60))))
+        except Exception:
+            return 60
+
     def write_prayer_audio_schedule(self, settings, timings, timezone_name, now, plugin_id):
         config_dir = self.audio_config_dir()
         config_dir.mkdir(parents=True, exist_ok=True)
@@ -298,6 +339,8 @@ class WeatherAladhan(BasePlugin):
             volume = 80
         playback_mode = settings.get("audioPlaybackMode") if settings.get("audioPlaybackMode") in {"both", "iqama_only"} else "both"
         sequence = "iqama_then_adhan"
+        refresh_settings = dict(settings or {})
+        refresh_settings["plugin_id"] = plugin_id
         payload = {
             "pluginId": plugin_id,
             "enabled": enabled,
@@ -313,6 +356,13 @@ class WeatherAladhan(BasePlugin):
             "delayMinutes": delay,
             "volumePercent": volume,
             "playerCommand": str(settings.get("audioPlayerCommand") or "").strip(),
+            "displayRefreshEnabled": _to_bool(settings.get("stateDisplayRefreshEnabled"), True),
+            "displayRefreshDelaySeconds": self.display_refresh_delay_seconds(settings),
+            "displayRefreshEvents": self.display_refresh_events(settings),
+            "refreshTimings": self.display_refresh_timings(timings),
+            "displayRefreshUrl": str(settings.get("displayRefreshUrl") or "http://127.0.0.1/update_now").strip(),
+            "displayRefreshCommand": str(settings.get("displayRefreshCommand") or "").strip(),
+            "displayUpdateSettings": refresh_settings,
             "writtenAt": datetime.now().isoformat(timespec="seconds"),
         }
         tmp = config_path.with_suffix(".tmp")
@@ -364,6 +414,19 @@ class WeatherAladhan(BasePlugin):
             "audioDelayMinutes": "10",
             "audioVolumePercent": "80",
             "audioPlayerCommand": "",
+            "stateDisplayRefreshEnabled": "true",
+            "stateDisplayRefreshDelaySeconds": "60",
+            "displayRefreshUrl": "http://127.0.0.1/update_now",
+            "displayRefreshCommand": "",
+            "stateRefreshPrayerFajr": "true",
+            "stateRefreshPrayerDhuhr": "true",
+            "stateRefreshPrayerAsr": "true",
+            "stateRefreshPrayerMaghrib": "true",
+            "stateRefreshPrayerIsha": "true",
+            "stateRefreshImsak": "true",
+            "stateRefreshSunrise": "true",
+            "stateRefreshSunset": "true",
+            "stateRefreshMidnight": "true",
             "audioPrayerFajr": "true",
             "audioPrayerDhuhr": "true",
             "audioPrayerAsr": "true",
@@ -376,7 +439,10 @@ class WeatherAladhan(BasePlugin):
             "displayRefreshTime", "showWeatherForecast", "showWeatherDetails",
             "showWeatherGraph", "showRainAmount", "showMoonPhase", "showNextPrayer",
             "showHijri", "showGregorian", "showPrayerMethod", "showSunrisePrayer",
-            "audioEnabled", "audioPrayerFajr", "audioPrayerDhuhr", "audioPrayerAsr",
+            "audioEnabled", "stateDisplayRefreshEnabled", "stateRefreshPrayerFajr",
+            "stateRefreshPrayerDhuhr", "stateRefreshPrayerAsr", "stateRefreshPrayerMaghrib",
+            "stateRefreshPrayerIsha", "stateRefreshImsak", "stateRefreshSunrise",
+            "stateRefreshSunset", "stateRefreshMidnight", "audioPrayerFajr", "audioPrayerDhuhr", "audioPrayerAsr",
             "audioPrayerMaghrib", "audioPrayerIsha",
         ]
         for key in bool_keys:

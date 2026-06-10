@@ -193,6 +193,56 @@
 <hr class="settings-divider">
 
 <div class="form-group">
+    <label for="stateDisplayRefreshEnabled">Refresh display at prayer changes</label>
+    <div class="toggle-container">
+        <input type="checkbox" id="stateDisplayRefreshEnabled" name="stateDisplayRefreshEnabled" class="toggle-checkbox" value="true"
+            onclick="this.value=this.checked ? 'true' : 'false'; togglePrayerStateRefreshControls();">
+        <label for="stateDisplayRefreshEnabled" class="toggle-label"></label>
+    </div>
+    <small>Refreshes the e-paper image after prayer boundaries so the current/next prayer section updates without frequent all-day refreshes.</small>
+</div>
+
+<div class="prayer-state-refresh-control">
+    <div class="form-row">
+        <div class="form-group">
+            <label for="stateDisplayRefreshDelaySeconds">Refresh delay after event, seconds</label>
+            <input type="number" id="stateDisplayRefreshDelaySeconds" name="stateDisplayRefreshDelaySeconds" min="0" max="3600" step="5">
+            <small>Recommended: 60 seconds.</small>
+        </div>
+        <div class="form-group">
+            <label for="displayRefreshUrl">InkyPi refresh URL</label>
+            <input type="text" id="displayRefreshUrl" name="displayRefreshUrl" placeholder="http://127.0.0.1/update_now">
+            <small>Leave as the local default unless InkyPi runs on a different host or port.</small>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>Main prayers that trigger display refresh</label>
+        <div class="checkbox-grid">
+            <label><input type="checkbox" id="stateRefreshPrayerFajr" name="stateRefreshPrayerFajr" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Fajr</label>
+            <label><input type="checkbox" id="stateRefreshPrayerDhuhr" name="stateRefreshPrayerDhuhr" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Dhuhr</label>
+            <label><input type="checkbox" id="stateRefreshPrayerAsr" name="stateRefreshPrayerAsr" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Asr</label>
+            <label><input type="checkbox" id="stateRefreshPrayerMaghrib" name="stateRefreshPrayerMaghrib" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Maghrib</label>
+            <label><input type="checkbox" id="stateRefreshPrayerIsha" name="stateRefreshPrayerIsha" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Isha</label>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>Optional visible events that trigger display refresh</label>
+        <small>Sunrise triggers only when the Sunrise row is enabled in Prayer display.</small>
+        <div class="checkbox-grid">
+            <label><input type="checkbox" id="stateRefreshSunrise" name="stateRefreshSunrise" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Sunrise if shown</label>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label for="displayRefreshCommand">Custom display refresh command</label>
+        <input type="text" id="displayRefreshCommand" name="displayRefreshCommand" placeholder="Optional advanced override">
+        <small>Usually blank. If set, this command runs instead of the HTTP refresh URL. Tokens: <code>{plugin_id}</code>, <code>{label}</code>, <code>{url}</code>.</small>
+    </div>
+</div>
+
+<div class="form-group">
     <label for="audioEnabled">Prayer audio</label>
     <div class="toggle-container">
         <input type="checkbox" id="audioEnabled" name="audioEnabled" class="toggle-checkbox" value="false"
@@ -341,6 +391,16 @@ document.addEventListener('DOMContentLoaded', () => {
         audioDelayMinutes: '10',
         audioVolumePercent: '80',
         audioPlayerCommand: '',
+        stateDisplayRefreshEnabled: 'true',
+        stateDisplayRefreshDelaySeconds: '60',
+        displayRefreshUrl: 'http://127.0.0.1/update_now',
+        displayRefreshCommand: '',
+        stateRefreshPrayerFajr: 'true',
+        stateRefreshPrayerDhuhr: 'true',
+        stateRefreshPrayerAsr: 'true',
+        stateRefreshPrayerMaghrib: 'true',
+        stateRefreshPrayerIsha: 'true',
+        stateRefreshSunrise: 'true',
         audioPrayerFajr: 'true',
         audioPrayerDhuhr: 'true',
         audioPrayerAsr: 'true',
@@ -373,6 +433,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
     togglePrayerAudioControls();
+
+    window.togglePrayerStateRefreshControls = function() {
+        const enabled = document.getElementById('stateDisplayRefreshEnabled')?.checked;
+        document.querySelectorAll('.prayer-state-refresh-control').forEach((el) => {
+            el.style.display = enabled ? '' : 'none';
+        });
+    };
+    togglePrayerStateRefreshControls();
 
     const TIMEZONE_CENTERS = {
         'America/Chicago': [41.8781, -87.6298],

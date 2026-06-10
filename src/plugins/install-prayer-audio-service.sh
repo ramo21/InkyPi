@@ -22,7 +22,7 @@ sudo mkdir -p "${CONFIG_DIR}"
 sudo chown -R "${RUN_USER}:${RUN_USER}" "${RUN_HOME}/.config" || true
 sudo tee "/etc/systemd/system/${SERVICE_NAME}" >/dev/null <<EOF
 [Unit]
-Description=InkyPi Prayer Audio Scheduler
+Description=InkyPi Prayer Audio and Display Refresh Scheduler
 After=network.target sound.target
 Wants=sound.target
 
@@ -41,6 +41,6 @@ EOF
 
 sudo systemctl daemon-reload
 sudo systemctl enable --now "${SERVICE_NAME}"
-echo "Installed and started ${SERVICE_NAME}"
+echo "Installed and started ${SERVICE_NAME} (prayer audio + display refresh)"
 echo "Config directory: ${CONFIG_DIR}"
 echo "Check status with: sudo systemctl status ${SERVICE_NAME}"

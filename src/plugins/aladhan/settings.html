@@ -152,8 +152,60 @@
     </div>
 </div>
 
-
 <hr class="settings-divider">
+
+<div class="form-group">
+    <label for="stateDisplayRefreshEnabled" class="form-label">Refresh display at prayer changes</label>
+    <div class="toggle-container">
+        <input type="checkbox" id="stateDisplayRefreshEnabled" name="stateDisplayRefreshEnabled" class="toggle-checkbox" value="true"
+            onclick="this.value=this.checked ? 'true' : 'false'; togglePrayerStateRefreshControls();">
+        <label for="stateDisplayRefreshEnabled" class="toggle-label"></label>
+    </div>
+    <small class="form-help">Refreshes the e-paper image after prayer boundaries so current/next prayer highlighting updates. Uses InkyPi's local <code>/update_now</code> endpoint.</small>
+</div>
+
+<div class="prayer-state-refresh-control">
+    <div class="form-row">
+        <div class="form-group">
+            <label for="stateDisplayRefreshDelaySeconds" class="form-label">Refresh delay after event, seconds</label>
+            <input type="number" id="stateDisplayRefreshDelaySeconds" name="stateDisplayRefreshDelaySeconds" class="form-input" min="0" max="3600" step="5">
+            <small class="form-help">Recommended: 60 seconds. This gives the prayer boundary time to pass before re-rendering.</small>
+        </div>
+        <div class="form-group">
+            <label for="displayRefreshUrl" class="form-label">InkyPi refresh URL</label>
+            <input type="text" id="displayRefreshUrl" name="displayRefreshUrl" class="form-input" placeholder="http://127.0.0.1/update_now">
+            <small class="form-help">Leave as the local default unless InkyPi runs on a different host or port.</small>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label class="form-label">Main prayers that trigger display refresh</label>
+        <div class="checkbox-grid">
+            <label><input type="checkbox" id="stateRefreshPrayerFajr" name="stateRefreshPrayerFajr" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Fajr</label>
+            <label><input type="checkbox" id="stateRefreshPrayerDhuhr" name="stateRefreshPrayerDhuhr" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Dhuhr</label>
+            <label><input type="checkbox" id="stateRefreshPrayerAsr" name="stateRefreshPrayerAsr" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Asr</label>
+            <label><input type="checkbox" id="stateRefreshPrayerMaghrib" name="stateRefreshPrayerMaghrib" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Maghrib</label>
+            <label><input type="checkbox" id="stateRefreshPrayerIsha" name="stateRefreshPrayerIsha" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Isha</label>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label class="form-label">Optional visible events that trigger display refresh</label>
+        <small class="form-help">These only trigger when the matching Show / hide option is also enabled. For example, Sunrise refreshes only when Sunrise is shown.</small>
+        <div class="checkbox-grid">
+            <label><input type="checkbox" id="stateRefreshImsak" name="stateRefreshImsak" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Imsak if shown</label>
+            <label><input type="checkbox" id="stateRefreshSunrise" name="stateRefreshSunrise" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Sunrise if shown</label>
+            <label><input type="checkbox" id="stateRefreshSunset" name="stateRefreshSunset" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Sunset if shown</label>
+            <label><input type="checkbox" id="stateRefreshMidnight" name="stateRefreshMidnight" value="true" onclick="this.value=this.checked ? 'true' : 'false';"> Midnight if shown</label>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label for="displayRefreshCommand" class="form-label">Custom display refresh command</label>
+        <input type="text" id="displayRefreshCommand" name="displayRefreshCommand" class="form-input" placeholder="Optional advanced override">
+        <small class="form-help">Usually blank. If set, this command runs instead of the HTTP refresh URL. Tokens: <code>{plugin_id}</code>, <code>{label}</code>, <code>{url}</code>.</small>
+    </div>
+</div>
 
 <div class="form-group">
     <label for="audioEnabled" class="form-label">Prayer audio</label>
@@ -293,6 +345,19 @@ document.addEventListener('DOMContentLoaded', () => {
         audioDelayMinutes: '10',
         audioVolumePercent: '80',
         audioPlayerCommand: '',
+        stateDisplayRefreshEnabled: 'true',
+        stateDisplayRefreshDelaySeconds: '60',
+        displayRefreshUrl: 'http://127.0.0.1/update_now',
+        displayRefreshCommand: '',
+        stateRefreshPrayerFajr: 'true',
+        stateRefreshPrayerDhuhr: 'true',
+        stateRefreshPrayerAsr: 'true',
+        stateRefreshPrayerMaghrib: 'true',
+        stateRefreshPrayerIsha: 'true',
+        stateRefreshImsak: 'true',
+        stateRefreshSunrise: 'true',
+        stateRefreshSunset: 'true',
+        stateRefreshMidnight: 'true',
         audioPrayerFajr: 'true',
         audioPrayerDhuhr: 'true',
         audioPrayerAsr: 'true',
@@ -324,6 +389,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
     togglePrayerAudioControls();
+
+    window.togglePrayerStateRefreshControls = function() {
+        const enabled = document.getElementById('stateDisplayRefreshEnabled')?.checked;
+        document.querySelectorAll('.prayer-state-refresh-control').forEach((el) => {
+            el.style.display = enabled ? '' : 'none';
+        });
+    };
+    togglePrayerStateRefreshControls();
 
     const OSM_TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
     const MAKKAH = {lat: 21.4225, lng: 39.8262};
