@@ -29,7 +29,7 @@ class Apod(BasePlugin):
     KNOWN_GOOD_IMAGE_DATES = [
         # NASA APOD title: "The ISS Meets Venus". This is the verified
         # April 11, 2025 ISS/Venus conjunction image requested as a fallback.
-        ("2025-04-11", "The ISS Meets Venus"),
+        # ("2025-04-11", "The ISS Meets Venus"), # does not show correctly on E-ink display
         ("2026-06-05", "The Hydra Cluster of Galaxies"),
         ("2022-02-06", "Blue Marble Earth"),
     ]
